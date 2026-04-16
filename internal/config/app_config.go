@@ -46,6 +46,12 @@ const (
 	// Company Info
 	ConfigKeyCompanyName = "company_name"
 	ConfigKeyCompanyRNC  = "company_rnc"
+
+	// Network Discovery
+	ConfigKeyNetworkDiscoveryRange          = "network_discovery_range"
+	ConfigKeyNetworkDiscoveryTimeout        = "network_discovery_timeout"
+	ConfigKeyNetworkDiscoveryMaxConcurrency = "network_discovery_max_concurrency"
+	ConfigKeyNetworkDiscoveryEnableAutoScan  = "network_discovery_enable_auto_scan"
 )
 
 // DefaultConfig returns default values for all configuration keys
@@ -76,5 +82,9 @@ func DefaultConfig() map[string]string {
 		ConfigKeyJWTExpiration:           "24",
 		ConfigKeyCompanyName:             "Empresa",
 		ConfigKeyCompanyRNC:              "",
+		ConfigKeyNetworkDiscoveryRange:          "", // Empty means auto-detect
+		ConfigKeyNetworkDiscoveryTimeout:        "5",
+		ConfigKeyNetworkDiscoveryMaxConcurrency: "50",
+		ConfigKeyNetworkDiscoveryEnableAutoScan:  "true",
 	}
 }

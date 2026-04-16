@@ -110,12 +110,15 @@ func (s *Server) routes() {
 		// Discovery (admin only)
 		r.Group(func(r chi.Router) {
 			r.Use(auth.RequireRole("admin"))
-			r.Post("/discovery/scan", s.handleScan)
 			r.Get("/devices/configured", s.handleListManagedDevices)
 			r.Post("/devices/configured", s.handleCreateManagedDevice)
 			r.Put("/devices/configured/{id}", s.handleUpdateManagedDevice)
 			r.Delete("/devices/configured/{id}", s.handleDeleteManagedDevice)
 			r.Post("/devices/configured/{id}/default", s.handleSetManagedDeviceDefault)
+			r.Get("/discovery/discover", s.handleDiscoverDevices)
+			r.Get("/discovery/refresh", s.handleRefreshDevices)
+			r.Get("/config/network", s.handleGetNetworkConfig)
+			r.Post("/config/network", s.handleUpdateNetworkConfig)
 		})
 
 		// Employees (admin, manager)

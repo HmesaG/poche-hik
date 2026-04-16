@@ -6,10 +6,15 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"ponches/internal/config"
+	"ponches/internal/discovery"
+	"ponches/internal/hikvision"
+	"strconv"
 )
 
 const managedDevicesConfigKey = "managed_devices"
@@ -40,6 +45,21 @@ type managedDeviceResponse struct {
 	IsDefault   bool      `json:"isDefault"`
 	HasPassword bool      `json:"hasPassword"`
 	UpdatedAt   time.Time `json:"updatedAt"`
+}
+
+type networkConfigResponse struct {
+	Range          string `json:"range"`
+	TimeoutSeconds int    `json:"timeoutSeconds"`
+	MaxConcurrency int    `json:"maxConcurrency"`
+	EnableAutoScan bool   `json:"enableAutoScan"`
+}
+
+type discoveryResult struct {
+	IP         string `json:"ip"`
+	Model      string `json:"model,omitempty"`
+	Serial     string `json:"serial,omitempty"`
+	DeviceType string `json:"deviceType,omitempty"`
+	Source     string `json:"source"` // "sadp" | "tcp"
 }
 
 func (s *Server) handleListManagedDevices(w http.ResponseWriter, r *http.Request) {
@@ -225,6 +245,190 @@ func (s *Server) handleSetManagedDeviceDefault(w http.ResponseWriter, r *http.Re
 
 	s.applyDefaultDevice(r.Context(), devices[index])
 	writeJSON(w, http.StatusOK, toManagedDeviceResponse(devices[index]))
+}
+
+func (s *Server) handleDiscoverDevices(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	netCfg, err := s.loadNetworkConfig(ctx)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to load network config")
+		return
+	}
+
+	results := make(map[string]discoveryResult)
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
+	// 1. SADP Discovery
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		sadpDevices, err := discovery.Discover(netCfg.TimeoutSeconds)
+		if err == nil {
+			mu.Lock()
+			for _, d := range sadpDevices {
+				results[d.IPv4Address] = discoveryResult{
+					IP:         d.IPv4Address,
+					Model:      d.DeviceDesc,
+					Serial:     d.DeviceSN,
+					DeviceType: d.DeviceType,
+					Source:     "sadp",
+				}
+			}
+			mu.Unlock()
+		}
+	}()
+
+	// 2. TCP Port Scan (Fallback/Complement)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		// Common Hikvision ISAPI ports
+		ports := []int{80, 8000, 8080, 443}
+		foundIPs, err := discovery.ScanPorts(ctx, netCfg.Range, ports, time.Duration(netCfg.TimeoutSeconds)*time.Second, netCfg.MaxConcurrency)
+		if err == nil {
+			mu.Lock()
+			for _, ip := range foundIPs {
+				if _, exists := results[ip]; !exists {
+					results[ip] = discoveryResult{
+						IP:     ip,
+						Source: "tcp",
+					}
+				}
+			}
+			mu.Unlock()
+		}
+	}()
+
+	wg.Wait()
+
+	finalResults := make([]discoveryResult, 0, len(results))
+	for _, res := range results {
+		finalResults = append(finalResults, res)
+	}
+
+	sort.Slice(finalResults, func(i, j int) bool {
+		return finalResults[i].IP < finalResults[j].IP
+	})
+
+	writeJSON(w, http.StatusOK, finalResults)
+}
+
+func (s *Server) handleRefreshDevices(w http.ResponseWriter, r *http.Request) {
+	devices, err := s.loadManagedDevices(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to load devices")
+		return
+	}
+
+	type refreshStatus struct {
+		ID     string `json:"id"`
+		IP     string `json:"ip"`
+		Online bool   `json:"online"`
+		Error  string `json:"error,omitempty"`
+	}
+
+	results := make([]refreshStatus, len(devices))
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	semaphore := make(chan struct{}, 10)
+
+	for i, device := range devices {
+		wg.Add(1)
+		go func(idx int, d managedDevice) {
+			defer wg.Done()
+			semaphore <- struct{}{}
+			defer func() { <-semaphore }()
+
+			client := hikvision.NewClient(d.IP, d.Port, d.Username, d.Password)
+			ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+			defer cancel()
+
+			info, err := client.GetDeviceInfo(ctx)
+			status := refreshStatus{
+				ID:     d.ID,
+				IP:     d.IP,
+				Online: err == nil,
+			}
+			if err != nil {
+				status.Error = err.Error()
+			} else if info != nil {
+				// Update model/serial if changed
+				mu.Lock()
+				if devices[idx].Model != info.Model || devices[idx].Serial != info.SerialNumber {
+					devices[idx].Model = info.Model
+					devices[idx].Serial = info.SerialNumber
+					devices[idx].UpdatedAt = time.Now()
+				}
+				mu.Unlock()
+			}
+			results[idx] = status
+		}(i, device)
+	}
+
+	wg.Wait()
+
+	// Persist updates if models/serials were updated
+	_ = s.persistManagedDevices(r.Context(), devices)
+
+	writeJSON(w, http.StatusOK, results)
+}
+
+func (s *Server) handleGetNetworkConfig(w http.ResponseWriter, r *http.Request) {
+	cfg, err := s.loadNetworkConfig(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to load network config")
+		return
+	}
+	writeJSON(w, http.StatusOK, cfg)
+}
+
+func (s *Server) handleUpdateNetworkConfig(w http.ResponseWriter, r *http.Request) {
+	var req networkConfigResponse
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	updates := map[string]string{
+		config.ConfigKeyNetworkDiscoveryRange:          req.Range,
+		config.ConfigKeyNetworkDiscoveryTimeout:        strconv.Itoa(req.TimeoutSeconds),
+		config.ConfigKeyNetworkDiscoveryMaxConcurrency: strconv.Itoa(req.MaxConcurrency),
+		config.ConfigKeyNetworkDiscoveryEnableAutoScan:  strconv.FormatBool(req.EnableAutoScan),
+	}
+
+	if err := s.Store.SetMultipleConfigValues(r.Context(), updates); err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to save config")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, req)
+}
+
+func (s *Server) loadNetworkConfig(ctx context.Context) (networkConfigResponse, error) {
+	values, err := s.Store.GetAllConfig(ctx)
+	if err != nil {
+		return networkConfigResponse{}, err
+	}
+
+	defaults := config.DefaultConfig()
+	getVal := func(key string) string {
+		if v, ok := values[key]; ok && v != "" {
+			return v
+		}
+		return defaults[key]
+	}
+
+	timeout, _ := strconv.Atoi(getVal(config.ConfigKeyNetworkDiscoveryTimeout))
+	concurrency, _ := strconv.Atoi(getVal(config.ConfigKeyNetworkDiscoveryMaxConcurrency))
+	autoScan, _ := strconv.ParseBool(getVal(config.ConfigKeyNetworkDiscoveryEnableAutoScan))
+
+	return networkConfigResponse{
+		Range:          getVal(config.ConfigKeyNetworkDiscoveryRange),
+		TimeoutSeconds: timeout,
+		MaxConcurrency: concurrency,
+		EnableAutoScan:  autoScan,
+	}, nil
 }
 
 func (s *Server) loadManagedDevices(ctx context.Context) ([]managedDevice, error) {
