@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"sort"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"ponches/internal/config"
 	"ponches/internal/discovery"
+	"ponches/internal/employees"
 	"ponches/internal/hikvision"
 	"strconv"
 )
@@ -403,6 +405,88 @@ func (s *Server) handleUpdateNetworkConfig(w http.ResponseWriter, r *http.Reques
 	}
 
 	writeJSON(w, http.StatusOK, req)
+}
+
+func (s *Server) handleSyncEmployeesToDevice(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	ctx := r.Context()
+
+	// 1. Get the device
+	devices, err := s.loadManagedDevices(ctx)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to load devices")
+		return
+	}
+
+	var target *managedDevice
+	if id != "" && id != "default" {
+		idx := indexManagedDevice(devices, id)
+		if idx >= 0 {
+			target = &devices[idx]
+		}
+	} else {
+		// Find default
+		for i := range devices {
+			if devices[i].IsDefault {
+				target = &devices[i]
+				break
+			}
+		}
+	}
+
+	if target == nil {
+		writeError(w, http.StatusNotFound, "Device not found or no default device set")
+		return
+	}
+
+	// 2. Get all employees
+	emps, err := s.Store.ListEmployees(ctx)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to load employees")
+		return
+	}
+
+	// filter active ones
+	var activeEmps []*employees.Employee
+	for i := range emps {
+		if strings.EqualFold(emps[i].Status, "active") {
+			activeEmps = append(activeEmps, emps[i])
+		}
+	}
+
+	if len(activeEmps) == 0 {
+		writeJSON(w, http.StatusOK, map[string]interface{}{
+			"message": "No active employees to sync",
+			"count":   0,
+		})
+		return
+	}
+
+	// 3. Sync to device
+	client := hikvision.NewClient(target.IP, target.Port, target.Username, target.Password)
+	
+	// Prepare batch (The ISAPI Record endpoint handles multiple users in One XML if structured correctly, 
+	// but our current CreateUser in users.go takes one. We have a private upsertUsers that takes variadic.)
+	// I'll use the private upsertUsers if I make it public or just call CreateUser in a loop (less efficient but safer).
+	// Actually, I'll update users.go to export UpsertUsers for batching.
+	
+	// For now, let's use the exported CreateUser (which I'll update to handle batching or use a loop).
+	// Wait, I wrote users.go earlier, let me check it.
+	
+	// CreateUser calls upsertUsers(ctx, emp)
+	// I should probably export CreateUsers(ctx, emps []*employees.Employee)
+	
+	err = client.CreateUsers(ctx, activeEmps)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("Sync failed: %v", err))
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"message": "Successfully synced employees to device",
+		"count":   len(activeEmps),
+		"device":  target.IP,
+	})
 }
 
 func (s *Server) loadNetworkConfig(ctx context.Context) (networkConfigResponse, error) {

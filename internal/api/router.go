@@ -115,6 +115,7 @@ func (s *Server) routes() {
 			r.Put("/devices/configured/{id}", s.handleUpdateManagedDevice)
 			r.Delete("/devices/configured/{id}", s.handleDeleteManagedDevice)
 			r.Post("/devices/configured/{id}/default", s.handleSetManagedDeviceDefault)
+			r.Post("/devices/configured/{id}/sync", s.handleSyncEmployeesToDevice)
 			r.Get("/discovery/discover", s.handleDiscoverDevices)
 			r.Get("/discovery/refresh", s.handleRefreshDevices)
 			r.Get("/config/network", s.handleGetNetworkConfig)

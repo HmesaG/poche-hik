@@ -166,14 +166,12 @@ func UserInfoToEmployee(u *userInfoXML) *employees.Employee {
 // --------------------------------------------------------------------------
 
 // CreateUser registers a new user on the Hikvision device.
-// Corresponds to: POST /ISAPI/AccessControl/UserInfo/Record
 func (c *Client) CreateUser(ctx context.Context, emp *employees.Employee) error {
-	return c.upsertUsers(ctx, emp)
+	return c.upsertBatch(ctx, []*employees.Employee{emp})
 }
 
 // UpdateUser updates an existing user on the device.
 // The ISAPI uses PUT to the same endpoint for updates.
-// Corresponds to: PUT /ISAPI/AccessControl/UserInfo/Record
 func (c *Client) UpdateUser(ctx context.Context, emp *employees.Employee) error {
 	info := EmployeeToUserInfo(emp)
 	list := userInfoList{
@@ -191,6 +189,27 @@ func (c *Client) UpdateUser(ctx context.Context, emp *employees.Employee) error 
 	}
 	return nil
 }
+
+// CreateUsers registers multiple employees on the device in batches.
+// Corresponds to: POST /ISAPI/AccessControl/UserInfo/Record
+func (c *Client) CreateUsers(ctx context.Context, emps []*employees.Employee) error {
+	const batchSize = 100
+	for i := 0; i < len(emps); i += batchSize {
+		end := i + batchSize
+		if end > len(emps) {
+			end = len(emps)
+		}
+
+		if err := c.upsertBatch(ctx, emps[i:end]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// --------------------------------------------------------------------------
+// CRUD operations — User Search / Delete
+// --------------------------------------------------------------------------
 
 // GetUsers retrieves all users from the device, paginating automatically.
 // Returns a slice of raw ISAPI user structs; use UserInfoToEmployee for conversion.
@@ -282,8 +301,8 @@ func (c *Client) DeleteUsers(ctx context.Context, employeeNos []string) error {
 // Private helpers
 // --------------------------------------------------------------------------
 
-// upsertUsers sends a POST to create one or more users.
-func (c *Client) upsertUsers(ctx context.Context, emps ...*employees.Employee) error {
+// upsertBatch sends a single POST request with a list of users.
+func (c *Client) upsertBatch(ctx context.Context, emps []*employees.Employee) error {
 	infos := make([]userInfoXML, len(emps))
 	for i, e := range emps {
 		infos[i] = *EmployeeToUserInfo(e)
@@ -300,7 +319,7 @@ func (c *Client) upsertUsers(ctx context.Context, emps ...*employees.Employee) e
 	}
 
 	if _, err := c.Do(ctx, "POST", "/ISAPI/AccessControl/UserInfo/Record", nil, xmlHeader(payload)); err != nil {
-		return fmt.Errorf("create user(s): %w", err)
+		return fmt.Errorf("bulk update users: %w", err)
 	}
 	return nil
 }
