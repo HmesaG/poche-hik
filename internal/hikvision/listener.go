@@ -10,18 +10,15 @@ import (
 	"time"
 )
 
-// EventListener listens for real-time events from Hikvision devices
+// EventListener listens for real-time events from Hikvision devices.
+// It shares the authenticated Client so all requests use Digest Auth.
 type EventListener struct {
-	deviceIP   string
-	port       int
-	username   string
-	password   string
-	client     *http.Client
-	handlers   []EventHandler
-	mu         sync.RWMutex
-	running    bool
-	ctx        context.Context
-	cancel     context.CancelFunc
+	client   *Client
+	handlers []EventHandler
+	mu       sync.RWMutex
+	running  bool
+	ctx      context.Context
+	cancel   context.CancelFunc
 }
 
 // EventHandler is a callback function for handling events
@@ -39,16 +36,10 @@ type AttendanceEvent struct {
 	AccessGranted bool  `json:"accessGranted"`
 }
 
-// NewEventListener creates a new event listener
+// NewEventListener creates a new event listener backed by a shared ISAPI Client.
 func NewEventListener(deviceIP string, port int, username, password string) *EventListener {
 	return &EventListener{
-		deviceIP: deviceIP,
-		port:     port,
-		username: username,
-		password: password,
-		client: &http.Client{
-			Timeout: 30 * time.Second,
-		},
+		client:   NewClient(deviceIP, port, username, password),
 		handlers: make([]EventHandler, 0),
 	}
 }
@@ -122,60 +113,47 @@ func (l *EventListener) notifyHandlers(event *AttendanceEvent) {
 	}
 }
 
-// GetRecentEvents fetches recent events from the device
+// GetRecentEvents fetches recent attendance events from the device via ISAPI.
+// Uses the shared Client so Digest Auth is handled automatically.
 func (l *EventListener) GetRecentEvents() ([]*AttendanceEvent, error) {
 	ctx, cancel := context.WithTimeout(l.ctx, 10*time.Second)
 	defer cancel()
 
-	// Use ISAPI to get attendance logs
-	// This is a simplified implementation - real implementation would use proper ISAPI endpoints
-	url := fmt.Sprintf("http://%s:%d/ISAPI/AccessControl/AttendenceLog?format=json", l.deviceIP, l.port)
-	
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	// K1T343EWX uses this endpoint for attendance log records.
+	const path = "/ISAPI/AccessControl/AttendenceLog?format=json"
+
+	resp, err := l.client.Do(ctx, "GET", path, nil, nil)
 	if err != nil {
-		return nil, err
-	}
-
-	// Add digest auth header (simplified - would need proper implementation)
-	req.SetBasicAuth(l.username, l.password)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := l.client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+		return nil, fmt.Errorf("fetch attendance log: %w", err)
 	}
 
 	var result struct {
 		AttendenceLogData struct {
 			AttendenceLog []struct {
-				EmployeeNo  string `json:"employeeNo"`
-				VerifyMode  string `json:"verifyMode"`
-				DoorID      string `json:"doorID"`
-				EventType   string `json:"eventType"`
-				Timestamp   string `json:"time"`
+				EmployeeNo string `json:"employeeNo"`
+				VerifyMode string `json:"verifyMode"`
+				DoorID     string `json:"doorID"`
+				EventType  string `json:"eventType"`
+				Timestamp  string `json:"time"`
 			} `json:"AttendenceLog"`
 		} `json:"AttendenceLogData"`
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, err
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("decode attendance log: %w", err)
 	}
 
-	var events []*AttendanceEvent
-	for _, log := range result.AttendenceLogData.AttendenceLog {
-		ts, _ := time.Parse(time.RFC3339, log.Timestamp)
+	events := make([]*AttendanceEvent, 0, len(result.AttendenceLogData.AttendenceLog))
+	for _, entry := range result.AttendenceLogData.AttendenceLog {
+		// Hikvision uses "yyyy-MM-dd'T'HH:mm:ss" without timezone; treat as local.
+		ts, _ := time.ParseInLocation("2006-01-02T15:04:05", entry.Timestamp, time.Local)
 		events = append(events, &AttendanceEvent{
-			EmployeeNo:  log.EmployeeNo,
-			DeviceID:    l.deviceIP,
-			Timestamp:   ts,
-			EventType:   log.EventType,
-			DoorID:      log.DoorID,
-			Verified:    true,
+			EmployeeNo:    entry.EmployeeNo,
+			DeviceID:      l.client.Host,
+			Timestamp:     ts,
+			EventType:     entry.EventType,
+			DoorID:        entry.DoorID,
+			Verified:      true,
 			AccessGranted: true,
 		})
 	}
