@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ponches | Sin Conexión</title>
+    <meta name="theme-color" content="#1f6f5f">
+    <style>
+        :root {
+            color-scheme: light;
+            --bg: #f4efe6;
+            --panel: #fffaf2;
+            --ink: #14332d;
+            --muted: #5c746d;
+            --accent: #1f6f5f;
+            --accent-2: #d7a44a;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: "Outfit", "Segoe UI", sans-serif;
+            background:
+                radial-gradient(circle at top left, rgba(215, 164, 74, 0.22), transparent 28%),
+                linear-gradient(160deg, #f4efe6 0%, #ebe4d7 100%);
+            color: var(--ink);
+            display: grid;
+            place-items: center;
+            padding: 24px;
+        }
+
+        .card {
+            width: min(520px, 100%);
+            background: var(--panel);
+            border: 1px solid rgba(20, 51, 45, 0.08);
+            border-radius: 24px;
+            padding: 32px;
+            box-shadow: 0 22px 60px rgba(20, 51, 45, 0.12);
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            border-radius: 999px;
+            background: rgba(31, 111, 95, 0.1);
+            color: var(--accent);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-size: 12px;
+        }
+
+        h1 {
+            margin: 18px 0 12px;
+            font-size: clamp(28px, 4vw, 40px);
+            line-height: 1;
+        }
+
+        p {
+            margin: 0 0 18px;
+            color: var(--muted);
+            line-height: 1.6;
+        }
+
+        .actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 24px;
+        }
+
+        a,
+        button {
+            appearance: none;
+            border: 0;
+            border-radius: 14px;
+            padding: 14px 18px;
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .primary {
+            background: var(--accent);
+            color: white;
+        }
+
+        .secondary {
+            background: rgba(20, 51, 45, 0.08);
+            color: var(--ink);
+        }
+    </style>
+</head>
+<body>
+    <main class="card">
+        <div class="badge">Modo sin conexión</div>
+        <h1>Ponches sigue instalado, pero el servidor no responde.</h1>
+        <p>La interfaz puede abrirse sin red, pero las funciones centrales siguen dependiendo del backend en Go para autenticación, eventos, reportes y sincronización con Hikvision.</p>
+        <p>Cuando el servidor vuelva a estar disponible, recarga la aplicación para continuar trabajando.</p>
+        <div class="actions">
+            <button class="primary" onclick="window.location.reload()">Reintentar</button>
+            <a class="secondary" href="/">Volver al inicio</a>
+        </div>
+    </main>
+</body>
+</html>

@@ -1,0 +1,28 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Databases
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Env files
+.env
+
+# MacOS
+.DS_Store
+
+# IDEs
+.idea/
+.vscode/

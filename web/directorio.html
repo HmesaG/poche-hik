@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Directorio Organizacional | Grupo MV</title>
+    <meta name="description" content="Directorio organizacional para compartir contactos del personal dentro de la intranet.">
+    <meta name="theme-color" content="#0f4c5c">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/directory.css?v=20260404a">
+</head>
+<body>
+    <div class="directory-shell">
+        <header class="hero">
+            <div class="hero-copy">
+                <span class="eyebrow">Grupo MV</span>
+                <h1>Directorio de empleados</h1>
+                <p>Consulta y comparte los datos de contacto del personal desde una sola pagina, libre de autenticacion para uso interno en intranet.</p>
+            </div>
+            <div class="hero-stats">
+                <div class="hero-stat">
+                    <strong id="employees-total">0</strong>
+                    <span>contactos cargados</span>
+                </div>
+                <div class="hero-stat">
+                    <strong id="departments-total">0</strong>
+                    <span>departamentos</span>
+                </div>
+            </div>
+        </header>
+
+        <section class="toolbar">
+            <label class="search-field">
+                <span>Buscar</span>
+                <input type="search" id="directory-search" placeholder="Nombre, cargo, departamento, telefono o correo">
+            </label>
+            <label class="filter-field">
+                <span>Departamento</span>
+                <select id="department-filter">
+                    <option value="">Todos</option>
+                </select>
+            </label>
+            <label class="filter-field">
+                <span>Estado</span>
+                <select id="status-filter">
+                    <option value="">Todos</option>
+                    <option value="Active">Activos</option>
+                    <option value="Inactive">Inactivos</option>
+                    <option value="Suspended">Suspendidos</option>
+                    <option value="Terminated">Terminados</option>
+                </select>
+            </label>
+        </section>
+
+        <section class="results-head">
+            <p id="results-summary">Cargando directorio...</p>
+        </section>
+
+        <main id="directory-grid" class="directory-grid" aria-live="polite"></main>
+
+        <template id="employee-card-template">
+            <article class="employee-card">
+                <div class="employee-header">
+                    <div class="avatar" aria-hidden="true"></div>
+                    <div>
+                        <h2 class="employee-name"></h2>
+                        <p class="employee-role"></p>
+                    </div>
+                </div>
+                <div class="employee-meta">
+                    <p class="employee-department"></p>
+                    <p class="employee-status"></p>
+                </div>
+                <dl class="contact-list">
+                    <div>
+                        <dt>Telefono</dt>
+                        <dd class="employee-phone"></dd>
+                    </div>
+                    <div>
+                        <dt>Correo</dt>
+                        <dd class="employee-email"></dd>
+                    </div>
+                    <div>
+                        <dt>Codigo</dt>
+                        <dd class="employee-code"></dd>
+                    </div>
+                </dl>
+                <div class="card-actions">
+                    <a class="action-btn action-vcf" target="_blank" rel="noreferrer">Contacto</a>
+                    <a class="action-btn action-whatsapp" target="_blank" rel="noreferrer">WhatsApp</a>
+                    <a class="action-btn action-email">Correo</a>
+                    <button class="action-btn action-share" type="button">Compartir</button>
+                </div>
+            </article>
+        </template>
+    </div>
+
+    <script src="/directory.js?v=20260404a"></script>
+</body>
+</html>

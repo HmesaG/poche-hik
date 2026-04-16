@@ -1,0 +1,377 @@
+openapi: 3.0.3
+info:
+  title: Ponches API - Control de Asistencia Hikvision
+  description: |
+    API para gestión de control de asistencia con dispositivos Hikvision.
+    
+    ## Autenticación
+    Todas las rutas excepto `/api/public/auth/login` requieren autenticación JWT.
+    Incluir el token en el header: `Authorization: Bearer <token>`
+    
+    ## Roles
+    - **admin**: Acceso completo
+    - **manager**: Lectura y escritura limitada
+    - **viewer**: Solo lectura
+  version: 2.0.0
+  contact:
+    name: Soporte
+    email: soporte@ponches.local
+
+servers:
+  - url: http://localhost:8080
+    description: Servidor local
+
+tags:
+  - name: Auth
+    description: Autenticación y autorización
+  - name: Employees
+    description: Gestión de empleados
+  - name: Faces
+    description: Registro facial
+  - name: Attendance
+    description: Control de asistencia
+  - name: Reports
+    description: Reportes y exportaciones
+  - name: Config
+    description: Configuración del sistema
+  - name: LDAP
+    description: Integración LDAP/Active Directory
+
+paths:
+  /api/public/auth/login:
+    post:
+      tags: [Auth]
+      summary: Iniciar sesión
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                  example: admin
+                password:
+                  type: string
+                  example: admin123
+      responses:
+        200:
+          description: Login exitoso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        400:
+          description: Credenciales inválidas
+        429:
+          description: Demasiados intentos
+
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Cerrar sesión
+      security:
+        - BearerAuth: []
+      responses:
+        200:
+          description: Logout exitoso
+
+  /api/auth/me:
+    get:
+      tags: [Auth]
+      summary: Obtener usuario actual
+      security:
+        - BearerAuth: []
+      responses:
+        200:
+          description: Información del usuario
+
+  /api/employees:
+    get:
+      tags: [Employees]
+      summary: Listar empleados
+      security:
+        - BearerAuth: []
+      responses:
+        200:
+          description: Lista de empleados
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Employee'
+    post:
+      tags: [Employees]
+      summary: Crear empleado
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Employee'
+      responses:
+        201:
+          description: Empleado creado
+        400:
+          description: Datos inválidos
+
+  /api/employees/{id}:
+    get:
+      tags: [Employees]
+      summary: Obtener empleado
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Empleado encontrado
+        404:
+          description: Empleado no encontrado
+    put:
+      tags: [Employees]
+      summary: Actualizar empleado
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Employee'
+      responses:
+        200:
+          description: Empleado actualizado
+    delete:
+      tags: [Employees]
+      summary: Eliminar empleado
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        204:
+          description: Empleado eliminado
+
+  /api/employees/{employeeNo}/face:
+    post:
+      tags: [Faces]
+      summary: Registrar rostro
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: employeeNo
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                photo:
+                  type: string
+                  format: binary
+      responses:
+        200:
+          description: Rostro registrado
+        400:
+          description: Foto inválida
+
+  /api/attendance/summary:
+    get:
+      tags: [Attendance]
+      summary: Resumen de asistencia
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: employee
+          in: query
+          schema:
+            type: string
+      responses:
+        200:
+          description: Resumen de asistencia
+
+  /api/attendance/stats:
+    get:
+      tags: [Attendance]
+      summary: Estadísticas del dashboard
+      security:
+        - BearerAuth: []
+      responses:
+        200:
+          description: Estadísticas en tiempo real
+
+  /api/reports/daily:
+    get:
+      tags: [Reports]
+      summary: Reporte diario de asistencia
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [pdf, excel]
+      responses:
+        200:
+          description: Reporte generado
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+
+  /api/reports/payroll:
+    get:
+      tags: [Reports]
+      summary: Reporte de pre-nómina
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        200:
+          description: Reporte de nómina generado
+
+  /api/config:
+    get:
+      tags: [Config]
+      summary: Obtener configuración
+      security:
+        - BearerAuth: []
+      responses:
+        200:
+          description: Configuración actual
+    post:
+      tags: [Config]
+      summary: Guardar configuración
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties:
+                type: string
+      responses:
+        200:
+          description: Configuración guardada
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        expiresAt:
+          type: integer
+          format: int64
+        user:
+          $ref: '#/components/schemas/User'
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        email:
+          type: string
+        fullName:
+          type: string
+        role:
+          type: string
+          enum: [admin, manager, viewer]
+
+    Employee:
+      type: object
+      properties:
+        id:
+          type: string
+        employeeNo:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        departmentId:
+          type: string
+        positionId:
+          type: string
+        status:
+          type: string
+          enum: [Active, Inactive, Suspended, Terminated]
+        hireDate:
+          type: string
+          format: date
+        baseSalary:
+          type: number
+          format: float

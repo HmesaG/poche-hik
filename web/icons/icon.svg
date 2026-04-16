@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1f6f5f"/>
+      <stop offset="100%" stop-color="#14332d"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f0d6a1"/>
+      <stop offset="100%" stop-color="#d7a44a"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="120" fill="url(#bg)"/>
+  <circle cx="256" cy="256" r="152" fill="#fffaf2" opacity="0.14"/>
+  <path d="M256 118c-76.22 0-138 61.78-138 138s61.78 138 138 138 138-61.78 138-138-61.78-138-138-138Zm0 44c51.91 0 94 42.09 94 94s-42.09 94-94 94-94-42.09-94-94 42.09-94 94-94Z" fill="url(#accent)"/>
+  <path d="M256 182c12.15 0 22 9.85 22 22v44.89l43.56 26.13c10.42 6.25 13.8 19.77 7.55 30.19-6.24 10.42-19.77 13.8-30.18 7.56l-54.22-32.54A22 22 0 0 1 234 261.36V204c0-12.15 9.85-22 22-22Z" fill="#fffaf2"/>
+  <path d="M124 404h264c12.15 0 22 9.85 22 22s-9.85 22-22 22H124c-12.15 0-22-9.85-22-22s9.85-22 22-22Z" fill="#d7a44a"/>
+</svg>

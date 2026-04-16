@@ -1,0 +1,1431 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ponches | Control de Asistencia Hikvision</title>
+    <meta name="description" content="Sistema de control de asistencia Hikvision con panel instalable tipo PWA.">
+    <meta name="theme-color" content="#1f6f5f">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Ponches">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="stylesheet" href="style.css?v=20260320a">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⌚</text></svg>">
+    <link rel="shortcut icon" href="/favicon-32.png" type="image/png">
+    <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+    <link rel="icon" href="/icons/icon-192.png" sizes="192x192" type="image/png">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+</head>
+<body>
+    <svg class="app-icon-sprite" aria-hidden="true" focusable="false">
+        <symbol id="icon-clock" viewBox="0 0 24 24">
+            <path d="M12 6.75v5.25l3.5 2.1" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
+            <circle cx="12" cy="12" r="8.25" fill="none" stroke="currentColor" stroke-width="1.8"/>
+        </symbol>
+        <symbol id="icon-dashboard" viewBox="0 0 24 24">
+            <path d="M4.75 4.75h6.75v6.75H4.75zM12.5 4.75h6.75v4.5H12.5zM12.5 11.5h6.75v7.75H12.5zM4.75 13.75h6.75v5.5H4.75z" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="1.8"/>
+        </symbol>
+        <symbol id="icon-devices" viewBox="0 0 24 24">
+            <rect x="3.75" y="5" width="16.5" height="10.5" rx="2.25" fill="none" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M8.25 19h7.5M12 15.5V19" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.8"/>
+        </symbol>
+        <symbol id="icon-users" viewBox="0 0 24 24">
+            <path d="M8.25 11a3.25 3.25 0 1 0 0-6.5 3.25 3.25 0 0 0 0 6.5ZM15.75 10a2.75 2.75 0 1 0 0-5.5 2.75 2.75 0 0 0 0 5.5Z" fill="none" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M3.75 18.25c.85-2.42 2.97-3.75 6-3.75s5.15 1.33 6 3.75M14.25 18.25c.51-1.48 1.8-2.43 3.75-2.75" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.8"/>
+        </symbol>
+        <symbol id="icon-departments" viewBox="0 0 24 24">
+            <path d="M6 5h4.5v4.5H6zM13.5 5H18v4.5h-4.5zM9.75 14.5h4.5V19h-4.5z" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="1.8"/>
+            <path d="M8.25 9.5v2.25h7.5V9.5M12 11.75v2.75" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
+        </symbol>
+        <symbol id="icon-briefcase" viewBox="0 0 24 24">
+            <path d="M9 6.25V5.5A1.75 1.75 0 0 1 10.75 3.75h2.5A1.75 1.75 0 0 1 15 5.5v.75" fill="none" stroke="currentColor" stroke-width="1.8"/>
+            <rect x="3.75" y="6.25" width="16.5" height="11.5" rx="2.25" fill="none" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M3.75 11.25h16.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
+        </symbol>
+        <symbol id="icon-attendance" viewBox="0 0 24 24">
+            <path d="M7 3.75v3M17 3.75v3M4.75 8h14.5M6 6.25h12A1.75 1.75 0 0 1 19.75 8v10A1.75 1.75 0 0 1 18 19.75H6A1.75 1.75 0 0 1 4.25 18V8A1.75 1.75 0 0 1 6 6.25Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
+            <path d="m9.25 13 1.75 1.75L14.75 11" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
+        </symbol>
+        <symbol id="icon-reports" viewBox="0 0 24 24">
+            <path d="M7 4.25h7.25l3.5 3.5V18A1.75 1.75 0 0 1 16 19.75H7A1.75 1.75 0 0 1 5.25 18V6A1.75 1.75 0 0 1 7 4.25Z" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="1.8"/>
+            <path d="M14.25 4.25V8h3.5M8.5 11.25h6.75M8.5 14.25h6.75" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
+        </symbol>
+        <symbol id="icon-calendar" viewBox="0 0 24 24">
+            <rect x="3.75" y="4" width="16.5" height="16" rx="2" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
+            <path d="M7 2v4M17 2v4M3.75 9h16.5M8 14h2M14 14h2M8 18h2" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
+        </symbol>
+        <symbol id="icon-settings" viewBox="0 0 24 24">
+            <path d="M12 8.75A3.25 3.25 0 1 0 12 15.25 3.25 3.25 0 0 0 12 8.75Z" fill="none" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M19 12a7.9 7.9 0 0 0-.12-1.33l2-1.56-1.9-3.3-2.42.78A8.09 8.09 0 0 0 14.2 5.3L13.75 2.75h-3.5L9.8 5.3a8.09 8.09 0 0 0-2.36 1.29l-2.42-.78-1.9 3.3 2 1.56A7.9 7.9 0 0 0 5 12c0 .45.04.9.12 1.33l-2 1.56 1.9 3.3 2.42-.78c.72.55 1.52.99 2.36 1.29l.45 2.55h3.5l.45-2.55c.84-.3 1.64-.74 2.36-1.29l2.42.78 1.9-3.3-2-1.56c.08-.43.12-.88.12-1.33Z" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="1.4"/>
+        </symbol>
+        <symbol id="icon-alert" viewBox="0 0 24 24">
+            <path d="M12 4.5 19.25 18H4.75L12 4.5Z" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="1.8"/>
+            <path d="M12 9v4.5M12 16.75h.01" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.8"/>
+        </symbol>
+        <symbol id="icon-chart" viewBox="0 0 24 24">
+            <path d="M5 18.25h14M7.5 15.5V11M12 15.5V7.5M16.5 15.5V9.25" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.8"/>
+        </symbol>
+        <symbol id="icon-support" viewBox="0 0 24 24">
+            <path d="M12 19.25a7.25 7.25 0 1 0-7.25-7.25" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
+            <path d="M7.5 12.5v2.25A1.75 1.75 0 0 0 9.25 16.5h.75M16.5 12.5v1.5A4 4 0 0 1 12.5 18h-1" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
+            <rect x="5.25" y="11" width="2.5" height="4.5" rx="1.1" fill="none" stroke="currentColor" stroke-width="1.8"/>
+            <rect x="16.25" y="11" width="2.5" height="4.5" rx="1.1" fill="none" stroke="currentColor" stroke-width="1.8"/>
+        </symbol>
+        <symbol id="icon-phone" viewBox="0 0 24 24">
+            <path d="M6.56 4.75h2.18c.43 0 .8.29.9.71l.54 2.27a.98.98 0 0 1-.28.95l-1.16 1.12a14.03 14.03 0 0 0 5.46 5.46l1.12-1.16c.25-.26.62-.37.97-.28l2.25.54c.42.1.71.47.71.9v2.18c0 .55-.45 1-1 1h-1.5C10 19.4 4.6 14 4.6 7.25v-1.5c0-.55.45-1 1-1Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
+        </symbol>
+        <symbol id="icon-mail" viewBox="0 0 24 24">
+            <rect x="3.75" y="5.25" width="16.5" height="13.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/>
+            <path d="m5.25 7 6.05 5.13a1.1 1.1 0 0 0 1.4 0L18.75 7" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
+        </symbol>
+        <symbol id="icon-globe" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="8.25" fill="none" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M12 3.75c2.05 2.04 3.25 5.06 3.25 8.25s-1.2 6.21-3.25 8.25c-2.05-2.04-3.25-5.06-3.25-8.25S9.95 5.79 12 3.75ZM4.25 12h15.5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
+        </symbol>
+        <symbol id="icon-travel" viewBox="0 0 24 24">
+            <path d="M20 7.5H4a1.75 1.75 0 0 0-1.75 1.75v8A1.75 1.75 0 0 0 4 19h16a1.75 1.75 0 0 0 1.75-1.75v-8A1.75 1.75 0 0 0 20 7.5Z" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="1.8"/>
+            <path d="M15.5 7.5V6a2 2 0 0 0-2-2h-3a2 2 0 0 0-2 2v1.5" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="1.8"/>
+            <path d="M12 12v3m-3-1.5h6" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.8"/>
+        </symbol>
+    </svg>
+    <!-- Login Screen -->
+    <div id="login-screen" class="login-screen">
+        <div class="login-card">
+            <div class="login-header">
+                <img src="/logo-ponche.png" alt="Ponches" class="brand-logo-image login-brand-image">
+                <h1>Ponches</h1>
+                <p>Control de Asistencia</p>
+            </div>
+            <form id="login-form" class="login-form">
+                <div class="form-group">
+                    <label for="login-username">Usuario</label>
+                    <input type="text" id="login-username" name="username" required placeholder="admin">
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Contraseña</label>
+                    <input type="password" id="login-password" name="password" required placeholder="••••••••">
+                </div>
+                <button type="submit" class="btn btn-login">Iniciar Sesión</button>
+                <p id="login-error" class="login-error"></p>
+            </form>
+            <p class="login-footer">v4.0 Final</p>
+        </div>
+    </div>
+
+    <!-- Main App (hidden until logged in) -->
+    <div class="app-container" id="app-container" style="display: none;">
+        <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+        <aside class="sidebar">
+            <div class="logo">
+                <img src="/logo-ponche.png" alt="Ponches" class="brand-logo-image sidebar-brand-image">
+                <div class="logo-copy">
+                    <h1>Ponches</h1>
+                    <p>Control Empresarial</p>
+                </div>
+            </div>
+            <nav>
+                <ul>
+                    <li class="active" data-page="dashboard" data-title="Dashboard"><span class="nav-item-content"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-dashboard"></use></svg><span class="nav-text">Dashboard</span></span></li>
+                    <li data-page="devices" data-title="Dispositivos"><span class="nav-item-content"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-devices"></use></svg><span class="nav-text">Dispositivos</span></span></li>
+                    <li class="nav-label">Organización</li>
+                    <li data-page="employees" data-title="Empleados" class="nav-item-org"><span class="nav-item-content"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-users"></use></svg><span class="nav-text">Empleados</span></span></li>
+                    <li data-page="departments" data-title="Departamentos" class="nav-item-org"><span class="nav-item-content"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-departments"></use></svg><span class="nav-text">Departamentos</span></span></li>
+                    <li data-page="positions" data-title="Cargos" class="nav-item-org"><span class="nav-item-content"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-briefcase"></use></svg><span class="nav-text">Cargos</span></span></li>
+                    <li data-page="attendance" data-title="Asistencia" class="nav-item-org"><span class="nav-item-content"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-attendance"></use></svg><span class="nav-text">Asistencia</span></span></li>
+                    <li data-page="travel-allowances" data-title="Viáticos" class="nav-item-org"><span class="nav-item-content"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-travel"></use></svg><span class="nav-text">Viáticos</span></span></li>
+                    <li data-page="leaves" data-title="Permisos" class="nav-item-org"><span class="nav-item-content"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-calendar"></use></svg><span class="nav-text">Permisos</span></span></li>
+                    <li data-page="reports" data-title="Reportes"><span class="nav-item-content"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-reports"></use></svg><span class="nav-text">Reportes</span></span></li>
+                    <li data-page="settings">Configuración</li>
+                </ul>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="sidebar-support-wrap" id="support-fab-wrap" style="padding-top: 1rem; border-top: 1px solid var(--border);">
+                    <button type="button" class="btn btn-secondary btn-sm" id="support-fab-button" style="width: 100%; justify-content: flex-start; gap: 0.8rem; padding: 0.8rem 1rem;">
+                        <svg viewBox="0 0 24 24" aria-hidden="true" style="width: 18px; height: 18px;"><use href="#icon-support"></use></svg>
+                        <span>Soporte Técnico</span>
+                    </button>
+                    <p style="margin-top: 1rem; opacity: 0.5; font-size: 0.72rem;">v4.0 Final</p>
+                </div>
+            </div>
+        </aside>
+
+        <main class="content">
+            <header class="top-bar">
+                <div class="top-bar-title">
+                    <button class="mobile-menu-btn" id="btn-mobile-menu" type="button" aria-label="Abrir menú">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </button>
+                    <img src="/logo-ponche.png" alt="Ponches" class="brand-logo-image top-bar-brand-image">
+                    <h2 id="page-title">Dashboard</h2>
+                </div>
+                <div class="user-profile">
+                    <span class="status-dot"></span>
+                    <span class="username" id="current-username">Admin</span>
+                    <button class="btn btn-sm btn-secondary" id="btn-logout" style="margin-left: 10px;">Salir</button>
+                </div>
+            </header>
+
+            <section id="dashboard" class="page active">
+                <div class="dashboard-shell">
+                    <div class="dashboard-hero">
+                        <div class="dashboard-hero-copy">
+                            <span class="eyebrow">Centro de Control</span>
+                            <h3>Operacion diaria de asistencia</h3>
+                            <p>Monitorea el estado de la jornada, revisa el flujo de ponches en tiempo real y mantén la operación alineada con la configuración corporativa.</p>
+                            <div class="dashboard-hero-tags">
+                                <span class="dashboard-tag">Tiempo real</span>
+                                <span class="dashboard-tag" id="dashboard-date-label">Sincronizando jornada</span>
+                            </div>
+                        </div>
+                        <div class="dashboard-brand-card">
+                            <img src="/logo-ponche.png" alt="Ponches" class="brand-logo-image dashboard-brand-image">
+                            <div class="dashboard-brand-copy">
+                                <span class="dashboard-brand-kicker">Grupo MV</span>
+                                <strong>Ponches</strong>
+                                <p>Panel operativo unificado para asistencia, dispositivos y estructura organizacional.</p>
+                            </div>
+                        </div>
+                    </div>
+                <div class="stats-grid dashboard-stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-card-header">
+                            <span class="stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#icon-users"></use></svg></span>
+                            <h3>Presentes</h3>
+                        </div>
+                        <p class="number" id="stats-present">0</p>
+                        <span class="trend positive">Empleados con registro activo hoy</span>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-header">
+                            <span class="stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#icon-alert"></use></svg></span>
+                            <h3>Tardanzas</h3>
+                        </div>
+                        <p class="number" id="stats-late">0</p>
+                        <span class="trend negative">2 requiere atención</span>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Ausentes</h3>
+                        <p class="number" id="stats-absent">0</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Dispositivos</h3>
+                        <p class="number" id="stats-devices">0</p>
+                        <span class="trend">En línea</span>
+                    </div>
+                </div>
+                </div>
+
+                <div class="live-feed dashboard-panel">
+                    <div class="feed-header">
+                        <div>
+                            <h3>Ponches en Tiempo Real</h3>
+                            <p class="section-lead">Actividad reciente recibida por WebSocket y estado de conectividad del ecosistema operativo.</p>
+                        </div>
+                        <button class="btn btn-sm" id="btn-scan">Escanear Red</button>
+                    </div>
+                    <div class="feed-table-container">
+                        <table id="events-table">
+                            <thead>
+                                <tr>
+                                    <th>Hora</th>
+                                    <th>Empleado</th>
+                                    <th>ID</th>
+                                    <th>Terminal</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Dinámico -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="devices" class="page">
+                <div class="page-header">
+                    <div>
+                        <h3>Administrador de Dispositivos</h3>
+                        <p class="section-lead">Gestiona múltiples terminales Hikvision, define una por defecto y mantén el descubrimiento de red separado de la configuración operativa.</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary btn-sm" id="btn-add-device">+ Nuevo Dispositivo</button>
+                        <button class="btn btn-sm" id="btn-refresh-devices">Refrescar SADP</button>
+                    </div>
+                </div>
+                <div class="device-admin-grid">
+                    <div class="device-panel device-overview">
+                        <div class="device-overview-copy">
+                            <span class="eyebrow">Arquitectura</span>
+                            <h4>Terminales administradas por empresa</h4>
+                            <p>La terminal marcada como predeterminada alimenta la configuración activa del backend. Las demás quedan registradas para operación, expansión y futura rotación.</p>
+                        </div>
+                        <div class="device-overview-metrics">
+                            <div class="device-metric">
+                                <span class="device-metric-label">Gestionados</span>
+                                <strong id="managed-devices-count">0</strong>
+                            </div>
+                            <div class="device-metric">
+                                <span class="device-metric-label">Predeterminado</span>
+                                <strong id="default-device-name">Sin asignar</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="device-panel">
+                        <div class="device-panel-header">
+                            <div>
+                                <h4>Dispositivos configurados</h4>
+                                <p>Alias, credenciales y prioridad operativa.</p>
+                            </div>
+                            <button class="btn btn-secondary btn-sm" id="btn-add-device-inline">Agregar manual</button>
+                        </div>
+                        <div class="users-table-container">
+                            <table id="managed-devices-table">
+                                <thead>
+                                    <tr>
+                                        <th>Dispositivo</th>
+                                        <th>IP / Puerto</th>
+                                        <th>Credenciales</th>
+                                        <th>Rol</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="managed-devices-list">
+                                    <!-- Dispositivos gestionados -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="device-panel">
+                        <div class="device-panel-header">
+                            <div>
+                                <h4>Descubiertos en la red</h4>
+                                <p>Resultados de SADP para importar rápidamente al inventario.</p>
+                            </div>
+                            <button class="btn btn-sm" id="btn-scan-devices-inline">Escanear ahora</button>
+                        </div>
+                        <div class="users-table-container">
+                            <table id="devices-table">
+                                <thead>
+                                    <tr>
+                                        <th>Modelo</th>
+                                        <th>Serie</th>
+                                        <th>IP</th>
+                                        <th>Fuente</th>
+                                        <th>Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="discovered-devices-list">
+                                    <!-- Dispositivos encontrados aparecerán aquí -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="employees" class="page">
+                <div class="page-header">
+                    <h3>Gestión de Empleados</h3>
+                    <button class="btn btn-sm" id="btn-add-employee">+ Nuevo Empleado</button>
+                </div>
+                <div class="employees-grid" id="employees-list">
+                    <!-- Tarjetas de empleados -->
+                </div>
+            </section>
+
+            <section id="departments" class="page">
+                <div class="page-header">
+                    <h3>Gestión de Departamentos</h3>
+                    <button class="btn btn-sm" id="btn-add-dept">+ Nuevo Departamento</button>
+                </div>
+                <div class="card">
+                    <div class="users-table-container">
+                        <table id="departments-table">
+                            <thead>
+                                <tr>
+                                    <th>Nombre</th>
+                                    <th>Descripción</th>
+                                    <th>Empleados</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="departments-list">
+                                <!-- Departamentos cargados dinámicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="positions" class="page">
+                <div class="page-header">
+                    <h3>Gestión de Cargos / Posiciones</h3>
+                    <button class="btn btn-sm" id="btn-add-pos">+ Nuevo Cargo</button>
+                </div>
+                <div class="card">
+                    <div class="users-table-container">
+                        <table id="positions-table">
+                            <thead>
+                                <tr>
+                                    <th>Nombre</th>
+                                    <th>Departamento</th>
+                                    <th>Nivel</th>
+                                    <th>Empleados</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="positions-list">
+                                <!-- Cargos cargados dinámicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- Permisos y Ausencias -->
+            <section id="leaves" class="page">
+                <div class="page-header">
+                    <div>
+                        <h3>Permisos y Ausencias</h3>
+                        <p class="section-lead">Gestión de ausencias justificadas, vacaciones, licencias médicas y otros permisos autorizados.</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-sm" id="btn-new-leave" type="button" onclick="openNewLeaveModal()">+ Nuevo Permiso</button>
+                    </div>
+                </div>
+                <div class="travel-filter-bar">
+                    <button class="leave-filter-btn active" data-status="all">Todos</button>
+                    <button class="leave-filter-btn" data-status="Approved">Aprobados</button>
+                    <button class="leave-filter-btn" data-status="Pending">Pendientes</button>
+                    <button class="leave-filter-btn" data-status="Rejected">Rechazados</button>
+                </div>
+                <div class="card" style="padding: 0;">
+                    <div class="users-table-container">
+                        <table id="leaves-table">
+                            <thead>
+                                <tr>
+                                    <th>Empleado</th>
+                                    <th>Tipo</th>
+                                    <th>Fecha</th>
+                                    <th>Días</th>
+                                    <th>Estado / Autoriza</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="leaves-list">
+                                <!-- Dinámico -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Viáticos -->
+            <section id="travel-allowances" class="page">
+                <div class="page-header">
+                    <div>
+                        <h3>Solicitudes de Viáticos</h3>
+                        <p class="section-lead">Gestiona solicitudes de viáticos con cálculo automático basado en tarifas configuradas.</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary btn-sm" id="btn-manage-rates">
+                            <svg viewBox="0 0 24 24" aria-hidden="true" style="width:16px;height:16px"><use href="#icon-settings"></use></svg>
+                            Tarifas
+                        </button>
+                        <button class="btn btn-sm" id="btn-new-travel">
+                            + Nueva Solicitud
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Filter bar -->
+                <div class="travel-filter-bar">
+                    <button class="travel-filter-btn active" data-status="all">Todas</button>
+                    <button class="travel-filter-btn" data-status="Pending">Pendientes</button>
+                    <button class="travel-filter-btn" data-status="Approved">Aprobadas</button>
+                    <button class="travel-filter-btn" data-status="Rejected">Rechazadas</button>
+                </div>
+
+                <div class="card" style="padding: 0;">
+                    <div class="users-table-container">
+                        <table id="travel-table">
+                            <thead>
+                                <tr>
+                                    <th>Empleado</th>
+                                    <th>Destino</th>
+                                    <th>Salida</th>
+                                    <th>Regreso</th>
+                                    <th>Días</th>
+                                    <th>Tarifa</th>
+                                    <th>Monto</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="travel-list">
+                                <tr>
+                                    <td colspan="9" style="text-align:center;padding:2rem;color:var(--text-muted);">Selecciona la sección de viáticos para cargar los datos.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="reports" class="page">
+                <div class="page-header">
+                    <h3>Reportes Empresariales</h3>
+                </div>
+                <div class="reports-grid">
+                    <div class="report-card">
+                        <span class="report-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#icon-reports"></use></svg></span>
+                        <h4>Asistencia Diaria</h4>
+                        <p>Resumen de entradas y salidas del día.</p>
+                        <div class="download-btns">
+                            <button class="btn-outline btn-sm">PDF</button>
+                            <button class="btn-outline btn-sm">Excel</button>
+                        </div>
+                    </div>
+                    <div class="report-card">
+                        <span class="report-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#icon-attendance"></use></svg></span>
+                        <h4>Pre-Nómina Quincenal</h4>
+                        <p>Cálculo de horas para pago de personal.</p>
+                        <div class="download-btns">
+                            <button class="btn-outline btn-sm">Excel</button>
+                        </div>
+                    </div>
+                    <div class="report-card">
+                        <span class="report-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#icon-alert"></use></svg></span>
+                        <h4>Tardanzas y Faltas</h4>
+                        <p>Control disciplinario y puntualidad.</p>
+                        <div class="download-btns">
+                            <button class="btn-outline btn-sm">PDF</button>
+                        </div>
+                    </div>
+                    <div class="report-card">
+                        <span class="report-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#icon-chart"></use></svg></span>
+                        <h4>KPIs de Asistencia</h4>
+                        <p>Tasa de ausentismo y efectividad.</p>
+                        <div class="download-btns">
+                            <button class="btn-outline btn-sm">PDF</button>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- ===== REPORTE DE ASISTENCIA EN VIVO ===== -->
+            <section id="attendance" class="page">
+                <div class="ar-shell">
+                    <!-- top bar -->
+                    <div class="ar-topbar">
+                        <div class="ar-topbar-title">
+
+                            <h3>Asistencia por Período</h3>
+                        </div>
+                        <div class="ar-export-btns">
+                            <button class="btn btn-secondary btn-sm" id="ar-export-excel">
+                                <svg viewBox="0 0 24 24" aria-hidden="true" style="width:15px;height:15px"><use href="#icon-reports"></use></svg>
+                                Excel
+                            </button>
+                            <button class="btn btn-sm" id="ar-export-pdf">
+                                <svg viewBox="0 0 24 24" aria-hidden="true" style="width:15px;height:15px"><use href="#icon-reports"></use></svg>
+                                PDF
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- filters -->
+                    <div class="ar-filters">
+                        <div class="ar-filter-group">
+                            <label for="ar-from">Desde</label>
+                            <input type="date" id="ar-from" class="ar-input">
+                        </div>
+                        <div class="ar-filter-group">
+                            <label for="ar-to">Hasta</label>
+                            <input type="date" id="ar-to" class="ar-input">
+                        </div>
+                        <div class="ar-filter-group">
+                            <label for="ar-dept">Departamento</label>
+                            <select id="ar-dept" class="ar-input">
+                                <option value="">Todos</option>
+                            </select>
+                        </div>
+                        <div class="ar-filter-group ar-filter-search">
+                            <label for="ar-search">Buscar empleado</label>
+                            <input type="text" id="ar-search" class="ar-input" placeholder="Nombre o No.">
+                        </div>
+                        <div class="ar-filter-group">
+                            <label for="ar-status">Estado</label>
+                            <select id="ar-status" class="ar-input">
+                                <option value="">Todos</option>
+                                <option value="Presente">Presente</option>
+                                <option value="Tarde">Tarde</option>
+                                <option value="Falta">Falta</option>
+                                <option value="Incompleto">Incompleto</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-sm" id="ar-apply">Aplicar</button>
+                    </div>
+
+                    <!-- KPI summary chips -->
+                    <div class="ar-kpis" id="ar-kpis">
+                        <div class="ar-kpi ar-kpi-total">
+                            <span class="ar-kpi-val" id="ar-kpi-total">—</span>
+                            <span class="ar-kpi-label">Registros</span>
+                        </div>
+                        <div class="ar-kpi ar-kpi-present">
+                            <span class="ar-kpi-val" id="ar-kpi-present">—</span>
+                            <span class="ar-kpi-label">Presentes</span>
+                        </div>
+                        <div class="ar-kpi ar-kpi-late">
+                            <span class="ar-kpi-val" id="ar-kpi-late">—</span>
+                            <span class="ar-kpi-label">Tardanzas</span>
+                        </div>
+                        <div class="ar-kpi ar-kpi-absent">
+                            <span class="ar-kpi-val" id="ar-kpi-absent">—</span>
+                            <span class="ar-kpi-label">Faltas</span>
+                        </div>
+                        <div class="ar-kpi ar-kpi-hours">
+                            <span class="ar-kpi-val" id="ar-kpi-hours">—</span>
+                            <span class="ar-kpi-label">Horas Totales</span>
+                        </div>
+                        <div class="ar-kpi ar-kpi-overtime">
+                            <span class="ar-kpi-val" id="ar-kpi-overtime">—</span>
+                            <span class="ar-kpi-label">H. Extra</span>
+                        </div>
+                    </div>
+
+                    <!-- Table -->
+                    <div class="ar-table-wrap">
+                        <div class="ar-loading" id="ar-loading">
+                            <svg viewBox="0 0 24 24" class="ar-spinner" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="28 56" stroke-linecap="round"/></svg>
+                            Cargando datos...
+                        </div>
+                        <div class="ar-empty" id="ar-empty" style="display:none">
+                            <svg viewBox="0 0 24 24" aria-hidden="true" style="width:40px;height:40px;opacity:.3"><use href="#icon-attendance"></use></svg>
+                            <p>Sin registros para este período</p>
+                        </div>
+                        <table class="ar-table" id="ar-table" style="display:none">
+                            <thead>
+                                <tr>
+                                    <th data-col="employeeNo" class="ar-th sortable">No. <span class="sort-icon"></span></th>
+                                    <th data-col="employeeName" class="ar-th sortable">Empleado <span class="sort-icon"></span></th>
+                                    <th data-col="department" class="ar-th sortable">Depto. <span class="sort-icon"></span></th>
+                                    <th data-col="date" class="ar-th sortable">Fecha <span class="sort-icon"></span></th>
+                                    <th data-col="checkIn" class="ar-th sortable">Entrada <span class="sort-icon"></span></th>
+                                    <th data-col="checkOut" class="ar-th sortable">Salida <span class="sort-icon"></span></th>
+                                    <th data-col="totalHours" class="ar-th sortable">Horas <span class="sort-icon"></span></th>
+                                    <th data-col="overtimeHrs" class="ar-th sortable">H.Extra <span class="sort-icon"></span></th>
+                                    <th data-col="lateMinutes" class="ar-th sortable">Min.Tarde <span class="sort-icon"></span></th>
+                                    <th data-col="status" class="ar-th sortable">Estado <span class="sort-icon"></span></th>
+                                    <th class="ar-th">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ar-tbody"></tbody>
+                        </table>
+                    </div>
+
+                    <div class="ar-footer" id="ar-footer" style="display:none">
+                        <span id="ar-row-count"></span>
+                    </div>
+                </div>
+            </section>
+
+            <section id="settings" class="page">
+                <div class="page-header">
+                    <div>
+                        <h3>Configuración Empresarial</h3>
+                        <p class="section-lead">Centraliza la identidad de la empresa, reglas de asistencia e integración LDAP en un solo flujo administrativo.</p>
+                    </div>
+                </div>
+
+                <!-- Tabs Navigation -->
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="tab-company">
+                        <span class="tab-btn-kicker">Empresa</span>
+                        <span class="tab-btn-label">Identidad y Directorio</span>
+                    </button>
+                    <button class="tab-btn" data-tab="tab-users">
+                        <span class="tab-btn-kicker">Acceso</span>
+                        <span class="tab-btn-label">Usuarios del sistema</span>
+                    </button>
+                </div>
+
+                <!-- Tab Content: Company -->
+                <div class="tab-content active" id="tab-company">
+                    <div class="settings-grid">
+
+                        <div class="settings-card">
+                            <div class="settings-card-header">
+                                <div>
+                                    <h4>Identidad y reglas</h4>
+                                    <p>Datos visibles de la empresa y parámetros laborales globales.</p>
+                                </div>
+                            </div>
+                            <form id="config-form">
+                                <div class="form-grid">
+                                    <div class="form-group" style="grid-column: 1/-1;">
+                                        <label>Nombre de la Empresa</label>
+                                        <input type="text" name="company_name" placeholder="Tu Empresa S.R.L.">
+                                    </div>
+                                    <div class="form-group" style="grid-column: 1/-1;">
+                                        <label>RNC (Opcional)</label>
+                                        <input type="text" name="company_rnc" placeholder="1-30-12345-6">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Tolerancia (Minutos)</label>
+                                        <input type="number" name="grace_period" value="15">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Horas Jornada</label>
+                                        <input type="number" name="work_hours" value="8">
+                                    </div>
+                                </div>
+                                <div class="settings-actions">
+                                    <button type="submit" class="btn">Guardar Configuración</button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <div class="settings-card">
+                            <div class="settings-card-header">
+                                <div>
+                                    <h4>Directorio LDAP / Active Directory</h4>
+                                    <p>Mueve la integración corporativa al contexto correcto: empresa, identidad y sincronización de usuarios.</p>
+                                </div>
+                            </div>
+                            <form id="ldap-form">
+                                <div class="form-grid">
+                                    <div class="form-group" style="grid-column: 1/-1;">
+                                        <label>Servidor LDAP (Domain Controller)</label>
+                                        <input type="text" name="ldap_host" placeholder="ldap.empresa.com">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Puerto</label>
+                                        <input type="number" name="ldap_port" value="389">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Base DN</label>
+                                        <input type="text" name="ldap_base_dn" placeholder="dc=empresa,dc=com">
+                                    </div>
+                                    <div class="form-group" style="grid-column: 1/-1;">
+                                        <label>Bind DN (Usuario de Lectura)</label>
+                                        <input type="text" name="ldap_bind_dn" placeholder="cn=admin,dc=empresa,dc=com">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Bind Password</label>
+                                        <input type="password" name="ldap_bind_pass" placeholder="••••••••">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Filtro de Usuarios</label>
+                                        <input type="text" name="ldap_user_filter" value="(objectClass=person)">
+                                    </div>
+                                </div>
+                                <div class="settings-actions settings-actions-split">
+                                    <div class="actions-left">
+                                        <button type="button" class="btn btn-secondary" id="btn-test-ldap">Probar Conexión</button>
+                                        <button type="button" class="btn btn-accent" id="btn-sync-ldap">Sincronizar Ahora</button>
+                                    </div>
+                                    <button type="submit" class="btn">Guardar LDAP</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Content: Users -->
+                <div class="tab-content" id="tab-users">
+                    <div class="card">
+                        <div class="page-header">
+                            <h3>Usuarios del Sistema</h3>
+                            <button class="btn btn-sm" id="btn-add-user">+ Nuevo Usuario</button>
+                        </div>
+                        <div class="users-table-container">
+                            <table id="users-table">
+                                <thead>
+                                    <tr>
+                                        <th>Username</th>
+                                        <th>Nombre Completo</th>
+                                        <th>Email</th>
+                                        <th>Rol</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="users-list">
+                                    <!-- Usuarios cargados dinámicamente -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Empleados LDAP para crear usuario -->
+                    <div class="card" style="margin-top: 1.5rem;">
+                        <div class="page-header">
+                            <h3>Crear Usuario desde LDAP</h3>
+                            <button class="btn btn-sm btn-secondary" id="btn-refresh-ldap">Refrescar LDAP</button>
+                        </div>
+                        <p class="text-muted" style="margin-bottom: 1rem;">
+                            Empleados sincronizados desde LDAP sin usuario en el sistema:
+                        </p>
+                        <div class="users-table-container">
+                            <table id="ldap-users-table">
+                                <thead>
+                                    <tr>
+                                        <th>Empleado</th>
+                                        <th>Nombre</th>
+                                        <th>Departamento</th>
+                                        <th>Email</th>
+                                        <th>Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ldap-users-list">
+                                    <!-- Empleados LDAP cargados dinámicamente -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+    </div>
+
+    <div class="modal-overlay" id="employee-modal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 id="modal-title">Nuevo Empleado</h3>
+                <button class="close-modal">&times;</button>
+            </div>
+            <form id="employee-form" class="modal-body">
+                <input type="hidden" name="id" id="employee-id">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Nombre(s)</label>
+                        <input type="text" name="firstName" required placeholder="Ej. Juan">
+                    </div>
+                    <div class="form-group">
+                        <label>Apellido(s)</label>
+                        <input type="text" name="lastName" required placeholder="Ej. Pérez">
+                    </div>
+                    <div class="form-group">
+                        <label>ID / Cédula</label>
+                        <input type="text" name="idNumber" required placeholder="000-0000000-0">
+                    </div>
+                    <div class="form-group">
+                        <label>No. Empleado (Reloj)</label>
+                        <input type="text" name="employeeNo" required placeholder="101">
+                    </div>
+                    <div class="form-group">
+                        <label>No. Flota</label>
+                        <input type="text" name="fleetNo" placeholder="Ej. FL-001">
+                    </div>
+                    <div class="form-group">
+                        <label>No. PersonalInterno</label>
+                        <input type="text" name="personalNo" placeholder="Ej. EMP-001">
+                    </div>
+                    <div class="form-group">
+                        <label>Correo</label>
+                        <input type="email" name="email" placeholder="juan@empresa.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Salario Base</label>
+                        <input type="number" name="baseSalary" min="0" step="0.01" placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label>Fecha de Nacimiento</label>
+                        <input type="date" name="birthDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Fecha de Ingreso</label>
+                        <input type="date" name="hireDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Departamento</label>
+                        <select name="departmentId" id="select-dept">
+                            <option value="">Cargando...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Cargo</label>
+                        <select name="positionId" id="select-pos">
+                            <option value="">Cargando...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Estado</label>
+                        <select name="status">
+                            <option value="Active">Activo</option>
+                            <option value="Inactive">Inactivo</option>
+                            <option value="Suspended">Suspendido</option>
+                            <option value="Terminated">Terminado</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary close-modal">Cancelar</button>
+                    <button type="submit" class="btn" id="employee-submit-btn">Guardar Empleado</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="face-modal">
+        <div class="modal-card" style="width: 400px;">
+            <div class="modal-header">
+                <h3>Registrar Rostro</h3>
+                <button class="close-modal">&times;</button>
+            </div>
+            <form id="face-form" class="modal-body">
+                <input type="hidden" name="employeeNo" id="face-emp-no">
+                <div class="form-group">
+                    <label>Seleccionar Foto (JPG)</label>
+                    <input type="file" name="photo" accept="image/jpeg" required>
+                </div>
+                <p class="text-muted" style="font-size: 0.75rem; margin-top: 10px;">
+                    La foto debe tener buena iluminación y el rostro centrado.
+                </p>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary close-modal">Cancelar</button>
+                    <button type="submit" class="btn">Enviar al Dispositivo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="device-modal">
+        <div class="modal-card" style="width: 560px;">
+            <div class="modal-header">
+                <h3 id="device-modal-title">Nuevo Dispositivo</h3>
+                <button class="close-modal">&times;</button>
+            </div>
+            <form id="device-form" class="modal-body">
+                <input type="hidden" name="id" id="device-id">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Alias del Dispositivo</label>
+                        <input type="text" name="name" id="device-name" required placeholder="Ej. Terminal Recepción">
+                    </div>
+                    <div class="form-group">
+                        <label>IP</label>
+                        <input type="text" name="ip" id="device-ip" required placeholder="192.168.1.64">
+                    </div>
+                    <div class="form-group">
+                        <label>Puerto</label>
+                        <input type="number" name="port" id="device-port" value="80">
+                    </div>
+                    <div class="form-group">
+                        <label>Usuario</label>
+                        <input type="text" name="username" id="device-username" placeholder="admin">
+                    </div>
+                    <div class="form-group">
+                        <label>Contraseña</label>
+                        <input type="password" name="password" id="device-password" placeholder="••••••••">
+                    </div>
+                    <div class="form-group">
+                        <label>Origen</label>
+                        <select name="source" id="device-source">
+                            <option value="manual">Manual</option>
+                            <option value="sadp">SADP</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Modelo</label>
+                        <input type="text" name="model" id="device-model" placeholder="DS-K1T671">
+                    </div>
+                    <div class="form-group">
+                        <label>Serie</label>
+                        <input type="text" name="serial" id="device-serial" placeholder="Serial del dispositivo">
+                    </div>
+                    <div class="form-group" style="grid-column: 1/-1;">
+                        <label class="checkbox-inline">
+                            <input type="checkbox" name="isDefault" id="device-default">
+                            <span>Marcar como dispositivo predeterminado</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary close-modal">Cancelar</button>
+                    <button type="submit" class="btn">Guardar Dispositivo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Nuevo/Editar Usuario -->
+    <div class="modal-overlay" id="user-modal">
+        <div class="modal-card" style="width: 500px;">
+            <div class="modal-header">
+                <h3 id="user-modal-title">Nuevo Usuario</h3>
+                <button class="close-modal">&times;</button>
+            </div>
+            <form id="user-form" class="modal-body">
+                <input type="hidden" name="id" id="user-id">
+                <input type="hidden" name="employeeId" id="user-employee-id">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Username</label>
+                        <input type="text" name="username" id="user-username" required placeholder="ej. jperez">
+                    </div>
+                    <div class="form-group">
+                        <label>Nombre Completo</label>
+                        <input type="text" name="fullName" id="user-fullname" required placeholder="Juan Pérez">
+                    </div>
+                    <div class="form-group" style="grid-column: 1/-1;">
+                        <label>Email</label>
+                        <input type="email" name="email" id="user-email" required placeholder="juan@empresa.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Rol</label>
+                        <select name="role" id="user-role" required>
+                            <option value="viewer">Viewer (Solo lectura)</option>
+                            <option value="manager">Manager (Gestión empleados)</option>
+                            <option value="admin">Admin (Acceso completo)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Contraseña</label>
+                        <input type="password" name="password" id="user-password" placeholder="••••••••" required>
+                    </div>
+                </div>
+                <p class="text-muted" style="font-size: 0.75rem; margin-top: 10px;">
+                    * Contraseña mínima 6 caracteres. Dejar en blanco para editar sin cambiar.
+                </p>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary close-modal">Cancelar</button>
+                    <button type="submit" class="btn">Guardar Usuario</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Nuevo/Editar Departamento -->
+    <div class="modal-overlay" id="dept-modal">
+        <div class="modal-card" style="width: 500px;">
+            <div class="modal-header">
+                <h3 id="dept-modal-title">Nuevo Departamento</h3>
+                <button class="close-modal">&times;</button>
+            </div>
+            <form id="dept-form" class="modal-body">
+                <input type="hidden" name="id" id="dept-id">
+                <div class="form-grid">
+                    <div class="form-group" style="grid-column: 1/-1;">
+                        <label>Nombre del Departamento</label>
+                        <input type="text" name="name" id="dept-name" required placeholder="Ej. Recursos Humanos">
+                    </div>
+                    <div class="form-group" style="grid-column: 1/-1;">
+                        <label>Descripción</label>
+                        <textarea name="description" id="dept-description" rows="3" placeholder="Descripción opcional del departamento"></textarea>
+                    </div>
+                    <div class="form-group" style="grid-column: 1/-1;">
+                        <label>Encargado / Supervisor</label>
+                        <select name="managerId" id="dept-manager">
+                            <option value="">Ninguno / Seleccionar después</option>
+                        </select>
+                        <p class="text-muted" style="font-size:0.75rem; margin-top:5px;">El encargado recibirá el reporte de empleados del departamento.</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary close-modal">Cancelar</button>
+                    <button type="submit" class="btn">Guardar Departamento</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Nuevo/Editar Cargo -->
+    <div class="modal-overlay" id="pos-modal">
+        <div class="modal-card" style="width: 500px;">
+            <div class="modal-header">
+                <h3 id="pos-modal-title">Nuevo Cargo</h3>
+                <button class="close-modal">&times;</button>
+            </div>
+            <form id="pos-form" class="modal-body">
+                <input type="hidden" name="id" id="pos-id">
+                <div class="form-grid">
+                    <div class="form-group" style="grid-column: 1/-1;">
+                        <label>Nombre del Cargo</label>
+                        <input type="text" name="name" id="pos-name" required placeholder="Ej. Gerente de Ventas">
+                    </div>
+                    <div class="form-group">
+                        <label>Departamento</label>
+                        <select name="departmentId" id="pos-dept-select">
+                            <option value="">Seleccionar Departamento</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Nivel</label>
+                        <input type="number" name="level" id="pos-level" value="1" min="1" placeholder="1">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary close-modal">Cancelar</button>
+                    <button type="submit" class="btn">Guardar Cargo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Nueva / Editar Solicitud de Viático -->
+    <div class="modal-overlay" id="travel-modal">
+        <div class="modal-card" style="width: 640px;">
+            <div class="modal-header">
+                <h3 id="travel-modal-title">Nueva Solicitud de Viático</h3>
+                <button class="close-modal" data-modal="travel-modal">&times;</button>
+            </div>
+            <form id="travel-form" class="modal-body">
+                <input type="hidden" name="id" id="travel-id">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Tipo de Solicitud</label>
+                        <select id="travel-request-type" required>
+                            <option value="single">Individual</option>
+                            <option value="group">Grupal</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Nombre del Grupo (opcional)</label>
+                        <input type="text" id="travel-group-name" placeholder="Ej. Brigada Norte / Equipo Comercial">
+                    </div>
+                    <div class="form-group">
+                        <label>Empleado</label>
+                        <select name="employeeId" id="travel-employee" required>
+                            <option value="">Seleccionar empleado...</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="travel-group-wrap" style="display:none;">
+                        <label>Participantes</label>
+                        <select id="travel-employees-group" multiple size="6">
+                        </select>
+                        <small class="text-muted">Usa Ctrl o Shift para seleccionar varios empleados.</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Tarifa de Viático</label>
+                        <select name="rateId" id="travel-rate" required>
+                            <option value="">Seleccionar tarifa...</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="grid-column: 1/-1;">
+                        <label>Destino</label>
+                        <input type="text" name="destination" id="travel-destination" required placeholder="Ej. Santiago, República Dominicana">
+                    </div>
+                    <div class="form-group">
+                        <label>Fecha de Salida</label>
+                        <input type="date" name="departureDate" id="travel-departure" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Fecha de Regreso</label>
+                        <input type="date" name="returnDate" id="travel-return" required>
+                    </div>
+                    <div class="form-group" style="grid-column: 1/-1;">
+                        <label>Motivo del Viaje</label>
+                        <textarea name="reason" id="travel-reason" rows="3" placeholder="Descripción del propósito del viaje..."></textarea>
+                    </div>
+                    <!-- Resultado del cálculo -->
+                    <div class="form-group" style="grid-column: 1/-1;">
+                        <div class="travel-calc-preview" id="travel-calc-preview" style="display:none;">
+                            <div class="travel-calc-row">
+                                <span>Días de viaje</span>
+                                <strong id="travel-calc-days">—</strong>
+                            </div>
+                            <div class="travel-calc-row">
+                                <span>Salario diario base</span>
+                                <strong id="travel-calc-daily">—</strong>
+                            </div>
+                            <div class="travel-calc-row travel-calc-total">
+                                <span>Monto calculado</span>
+                                <strong id="travel-calc-amount">—</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary close-modal" data-modal="travel-modal">Cancelar</button>
+                    <button type="submit" class="btn" id="travel-submit-btn">Guardar Solicitud</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Gestión de Tarifas -->
+    <div class="modal-overlay" id="rates-modal">
+        <div class="modal-card" style="width: 560px;">
+            <div class="modal-header">
+                <h3>Gestión de Tarifas</h3>
+                <button class="close-modal" data-modal="rates-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Form nueva tarifa -->
+                <form id="rate-form">
+                    <input type="hidden" id="rate-id">
+                    <div class="form-grid">
+                        <div class="form-group" style="grid-column: 1/-1;">
+                            <label>Nombre de la Tarifa</label>
+                            <input type="text" id="rate-name" required placeholder="Ej. Interior Gerencial">
+                        </div>
+                        <div class="form-group">
+                            <label>Tipo de Cálculo</label>
+                            <select id="rate-type" required>
+                                <option value="fixed">Monto Fijo (RD$/día)</option>
+                                <option value="percentage">Porcentual (% salario diario)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label id="rate-value-label">Monto por día (RD$)</label>
+                            <input type="number" id="rate-value" min="0.01" step="0.01" required placeholder="0.00">
+                        </div>
+                        <div class="form-group" style="grid-column: 1/-1; display:flex; gap:0.75rem; justify-content:flex-end;">
+                            <button type="button" class="btn btn-secondary btn-sm" id="btn-rate-cancel" style="display:none;">Cancelar</button>
+                            <button type="submit" class="btn btn-sm" id="rate-submit-btn">+ Agregar Tarifa</button>
+                        </div>
+                    </div>
+                </form>
+                <hr style="border-color: var(--border); margin: 1rem 0;">
+                <div class="users-table-container" style="max-height: 260px;">
+                    <table id="rates-table">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Tipo</th>
+                                <th>Valor</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rates-list">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Aprobación / Rechazo -->
+    <div class="modal-overlay" id="travel-decision-modal">
+        <div class="modal-card" style="width: 420px;">
+            <div class="modal-header">
+                <h3 id="decision-modal-title">Aprobar Solicitud</h3>
+                <button class="close-modal" data-modal="travel-decision-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="decision-modal-desc" style="color: var(--text-muted); margin-bottom: 1.25rem; line-height: 1.6;"></p>
+                <div class="form-group">
+                    <label>Notas (opcional)</label>
+                    <textarea id="decision-notes" rows="3" placeholder="Comentarios sobre la decisión..."></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary close-modal" data-modal="travel-decision-modal">Cancelar</button>
+                    <button type="button" class="btn" id="btn-confirm-decision">Confirmar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="toast"></div>
+
+    <!-- Logout Modal -->
+    <div class="modal-overlay" id="logout-modal">
+        <div class="modal-card" style="width: 400px; text-align: center;">
+            <div class="modal-body" style="padding: 2.5rem 2.2rem 1rem;">
+                <div class="login-icon" style="background: rgba(239, 68, 68, 0.12); color: #ef4444; margin: 0 auto 1.5rem;">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+                </div>
+                <h3 style="font-size: 1.5rem; margin-bottom: 0.75rem;">¿Cerrar Sesión?</h3>
+                <p class="text-muted" style="line-height: 1.6;">Si sales ahora, deberás ingresar tus credenciales nuevamente para acceder al panel empresarial.</p>
+            </div>
+            <div class="modal-footer" style="padding: 1.5rem 2.22rem 2.5rem; justify-content: stretch; background: transparent; border-top: none;">
+                <button type="button" class="btn btn-secondary close-modal" style="flex: 1;">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="confirm-logout" style="flex: 1;">Salir</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Support Panel (Popup outside sidebar to avoid clipping) -->
+    <div class="support-fab-panel" id="support-fab-panel">
+        <div class="bottom-sheet-handle"></div>
+        <div class="support-fab-panel-header">
+            <div>
+                <strong>Soporte Grupo MV</strong>
+                <p>Canales rápidos de contacto</p>
+            </div>
+        </div>
+        <div class="support-fab-links">
+            <a href="https://www.grupomvrd.com/" target="_blank" rel="noreferrer" class="support-link">
+                <span class="support-link-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-globe"></use></svg></span>
+                <span>
+                    <strong>Sitio web</strong>
+                    <small>www.grupomvrd.com</small>
+                </span>
+            </a>
+            <a href="https://wa.me/18097649811" target="_blank" rel="noreferrer" class="support-link">
+                <span class="support-link-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-support"></use></svg></span>
+                <span>
+                    <strong>WhatsApp</strong>
+                    <small>Soporte y consultas</small>
+                </span>
+            </a>
+            <a href="tel:+18097649811" class="support-link">
+                <span class="support-link-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-phone"></use></svg></span>
+                <span>
+                    <strong>Llamar</strong>
+                    <small>(809) 764-9811</small>
+                </span>
+            </a>
+            <a href="mailto:grupomv.rd@outlook.com" class="support-link">
+                <span class="support-link-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-mail"></use></svg></span>
+                <span>
+                    <strong>Correo</strong>
+                    <small>grupomv.rd@outlook.com</small>
+                </span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Modal: Reporte de Asistencia por Período -->
+    <div class="modal-overlay" id="attendance-period-modal">
+        <div class="modal-card" style="width: 480px;">
+            <div class="modal-header">
+                <h3>Reporte de Asistencia por Período</h3>
+                <button class="close-modal" id="close-attendance-period-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.2rem;">
+                    Selecciona el rango de fechas para generar el reporte detallado de asistencia.
+                </p>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="period-from">Fecha Inicio</label>
+                        <input type="date" id="period-from">
+                    </div>
+                    <div class="form-group">
+                        <label for="period-to">Fecha Fin</label>
+                        <input type="date" id="period-to">
+                    </div>
+                    <div class="form-group" style="grid-column: 1 / -1;">
+                        <label for="period-dept">Departamento (opcional)</label>
+                        <select id="period-dept">
+                            <option value="">Todos los departamentos</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary close-attendance-period">Cancelar</button>
+                <button type="button" class="btn btn-secondary" id="btn-period-pdf">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" style="width:15px;height:15px;margin-right:5px;vertical-align:middle"><use href="#icon-reports"></use></svg>
+                    Descargar PDF
+                </button>
+                <button type="button" class="btn" id="btn-period-excel">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" style="width:15px;height:15px;margin-right:5px;vertical-align:middle"><use href="#icon-attendance"></use></svg>
+                    Descargar Excel
+                </button>
+            </div>
+    </div>
+
+    <!-- Modal Nuevo / Editar Permiso -->
+    <div class="modal-overlay" id="leave-modal">
+        <div class="modal-card" style="width: 500px;">
+            <div class="modal-header">
+                <h3 id="leave-modal-title">Solicitud de Permiso</h3>
+                <button class="close-modal" data-modal="leave-modal">&times;</button>
+            </div>
+            <form id="leave-form" class="modal-body">
+                <input type="hidden" name="id" id="leave-id">
+                <div class="form-grid">
+                    <div class="form-group" style="grid-column: 1/-1;">
+                        <label>Empleado</label>
+                        <select name="employeeId" id="leave-employee" required>
+                            <option value="">Seleccionar empleado...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Tipo de Permiso</label>
+                        <select name="type" id="leave-type" required>
+                            <option value="Vacation">Vacaciones</option>
+                            <option value="Sick">Enfermedad / Licencia Médica</option>
+                            <option value="Personal">Personal / Imprevisto</option>
+                            <option value="Unpaid">Permiso Sin Goce (Unpaid)</option>
+                            <option value="Other">Otro</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Estado</label>
+                        <select name="status" id="leave-status" required>
+                            <option value="Approved">Aprobado</option>
+                            <option value="Pending">Pendiente</option>
+                            <option value="Rejected">Rechazado</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Fecha de Salida</label>
+                        <input type="date" name="startDate" id="leave-start" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Fecha de Regreso (Fin)</label>
+                        <input type="date" name="endDate" id="leave-end" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Días Solicitados</label>
+                        <input type="number" name="days" id="leave-days" min="1" value="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Autorizado por</label>
+                        <select name="authorizedBy" id="leave-authorized-by">
+                            <option value="">Seleccionar...</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="grid-column: 1/-1;">
+                        <label>Motivo</label>
+                        <input type="text" name="reason" id="leave-reason" placeholder="Razones principales...">
+                    </div>
+                    <div class="form-group" style="grid-column: 1/-1;">
+                        <label>Notas adicionales</label>
+                        <textarea name="notes" id="leave-notes" rows="2" placeholder="Cualquier aclaración para Recursos Humanos..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary close-modal" data-modal="leave-modal">Cancelar</button>
+                    <button type="submit" class="btn">Guardar Permiso</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Reportar Empleado (Notificación) -->
+    <div class="modal-overlay" id="notify-modal">
+        <div class="modal-card" style="width: 500px;">
+            <div class="modal-header">
+                <h3>Reportar Novedad</h3>
+                <button class="close-modal" data-modal="notify-modal">&times;</button>
+            </div>
+            <div class="modal-body" style="padding-bottom: 0;">
+                <p>Notificar al encargado de <strong id="notify-dept-name"></strong> sobre este registro de asistencia.</p>
+                <div class="form-group" style="margin-top: 15px;">
+                    <label>Nota opcional</label>
+                    <textarea id="notify-notes" rows="2" placeholder="Ej. El empleado no justificó la ausencia..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary close-modal" data-modal="notify-modal">Cancelar</button>
+                <button type="button" class="btn" id="btn-notify-mail" style="background-color: #fbbc04; color: #333; border: none; box-shadow: none;"><svg style="width:16px;height:16px;margin-right:8px" viewBox="0 0 24 24"><use href="#icon-mail"></use></svg> Correo</button>
+                <button type="button" class="btn" id="btn-notify-wa" style="background-color: #25D366; border: none; box-shadow: none;"><svg style="width:16px;height:16px;margin-right:8px" viewBox="0 0 24 24"><path fill="currentColor" d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.888-.788-1.489-1.761-1.662-2.06-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.052.247C5.503.249.176 5.577.174 12.126c-.001 2.09.546 4.133 1.585 5.928L0 24l6.105-1.601a11.822 11.822 0 005.943 1.597h.005c6.547 0 11.874-5.328 11.877-11.878a11.811 11.811 0 00-3.483-8.411"/></svg> WhatsApp</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="app.js?v=20260320a"></script>
+</body>
+</html>

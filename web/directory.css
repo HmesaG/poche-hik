@@ -1,0 +1,329 @@
+:root {
+    --bg: #f5efe6;
+    --panel: rgba(255, 252, 246, 0.88);
+    --panel-strong: #fffaf2;
+    --line: rgba(15, 76, 92, 0.14);
+    --text: #16323a;
+    --muted: #5d7277;
+    --accent: #0f4c5c;
+    --accent-2: #e36414;
+    --success: #2f7d32;
+    --shadow: 0 24px 60px rgba(15, 76, 92, 0.12);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: "Outfit", sans-serif;
+    color: var(--text);
+    background:
+        radial-gradient(circle at top left, rgba(227, 100, 20, 0.14), transparent 32%),
+        radial-gradient(circle at top right, rgba(15, 76, 92, 0.16), transparent 26%),
+        linear-gradient(180deg, #f7f1e8 0%, #f2ebe1 100%);
+}
+
+.directory-shell {
+    width: min(1240px, calc(100% - 2rem));
+    margin: 0 auto;
+    padding: 2rem 0 3rem;
+}
+
+.hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.7fr) minmax(260px, 0.9fr);
+    gap: 1.25rem;
+    align-items: stretch;
+    margin-bottom: 1.25rem;
+}
+
+.hero-copy,
+.hero-stats,
+.toolbar,
+.results-head,
+.employee-card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 24px;
+    backdrop-filter: blur(12px);
+    box-shadow: var(--shadow);
+}
+
+.hero-copy {
+    padding: 2rem;
+}
+
+.eyebrow {
+    display: inline-flex;
+    padding: 0.4rem 0.8rem;
+    border-radius: 999px;
+    background: rgba(15, 76, 92, 0.1);
+    color: var(--accent);
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.hero-copy h1 {
+    margin: 0.9rem 0 0.75rem;
+    font-size: clamp(2rem, 5vw, 3.6rem);
+    line-height: 0.95;
+}
+
+.hero-copy p {
+    margin: 0;
+    max-width: 52rem;
+    font-size: 1rem;
+    color: var(--muted);
+    line-height: 1.7;
+}
+
+.hero-stats {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    padding: 1rem;
+}
+
+.hero-stat {
+    display: grid;
+    gap: 0.3rem;
+    padding: 1.25rem;
+    border-radius: 18px;
+    background: var(--panel-strong);
+    border: 1px solid rgba(15, 76, 92, 0.08);
+}
+
+.hero-stat strong {
+    font-size: 2rem;
+    color: var(--accent);
+}
+
+.hero-stat span {
+    color: var(--muted);
+}
+
+.toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) repeat(2, minmax(180px, 1fr));
+    gap: 1rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.search-field,
+.filter-field {
+    display: grid;
+    gap: 0.45rem;
+    font-size: 0.9rem;
+    color: var(--muted);
+}
+
+.search-field input,
+.filter-field select {
+    width: 100%;
+    padding: 0.9rem 1rem;
+    border: 1px solid rgba(15, 76, 92, 0.12);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.88);
+    color: var(--text);
+    font: inherit;
+}
+
+.results-head {
+    padding: 0.95rem 1.1rem;
+    margin-bottom: 1rem;
+}
+
+.results-head p {
+    margin: 0;
+    color: var(--muted);
+}
+
+.directory-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+    gap: 1rem;
+}
+
+.employee-card {
+    display: grid;
+    gap: 1rem;
+    padding: 1.2rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.employee-card::after {
+    content: "";
+    position: absolute;
+    inset: auto -50px -50px auto;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(227, 100, 20, 0.16), transparent 70%);
+}
+
+.employee-card.is-highlighted {
+    border-color: rgba(227, 100, 20, 0.55);
+    transform: translateY(-2px);
+}
+
+.employee-header {
+    display: flex;
+    gap: 0.95rem;
+    align-items: center;
+}
+
+.avatar {
+    width: 52px;
+    height: 52px;
+    display: grid;
+    place-items: center;
+    border-radius: 18px;
+    background: linear-gradient(135deg, rgba(15, 76, 92, 0.95), rgba(227, 100, 20, 0.85));
+    color: #fff;
+    font-size: 1.2rem;
+    font-weight: 700;
+    flex: 0 0 auto;
+}
+
+.employee-header h2 {
+    margin: 0;
+    font-size: 1.2rem;
+}
+
+.employee-role,
+.employee-department,
+.employee-status {
+    margin: 0.25rem 0 0;
+    color: var(--muted);
+}
+
+.employee-meta {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+
+.employee-meta p {
+    padding: 0.4rem 0.75rem;
+    border-radius: 999px;
+    background: rgba(15, 76, 92, 0.08);
+    font-size: 0.86rem;
+}
+
+.employee-status.status-active {
+    background: rgba(47, 125, 50, 0.12);
+    color: var(--success);
+}
+
+.contact-list {
+    display: grid;
+    gap: 0.8rem;
+    margin: 0;
+}
+
+.contact-list div {
+    display: grid;
+    gap: 0.2rem;
+}
+
+.contact-list dt {
+    font-size: 0.76rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.contact-list dd {
+    margin: 0;
+    word-break: break-word;
+}
+
+.contact-list a {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.card-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem;
+}
+
+.action-btn {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0.8rem 0.9rem;
+    border: 1px solid rgba(15, 76, 92, 0.12);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.8);
+    color: var(--text);
+    text-decoration: none;
+    font: inherit;
+    cursor: pointer;
+    transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.action-btn:hover {
+    transform: translateY(-1px);
+    border-color: rgba(15, 76, 92, 0.28);
+}
+
+.action-vcf {
+    background: rgba(15, 76, 92, 0.1);
+}
+
+.action-whatsapp {
+    background: rgba(37, 211, 102, 0.12);
+}
+
+.action-email {
+    background: rgba(227, 100, 20, 0.12);
+}
+
+.empty-state {
+    grid-column: 1 / -1;
+    padding: 2rem;
+    border: 1px dashed rgba(15, 76, 92, 0.2);
+    border-radius: 24px;
+    text-align: center;
+    color: var(--muted);
+    background: rgba(255, 255, 255, 0.45);
+}
+
+@media (max-width: 900px) {
+    .hero,
+    .toolbar {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 640px) {
+    .directory-shell {
+        width: min(100% - 1rem, 100%);
+        padding-top: 1rem;
+    }
+
+    .hero-copy,
+    .hero-stats,
+    .toolbar,
+    .employee-card,
+    .results-head {
+        border-radius: 20px;
+    }
+
+    .hero-copy {
+        padding: 1.35rem;
+    }
+
+    .card-actions {
+        grid-template-columns: 1fr;
+    }
+}
