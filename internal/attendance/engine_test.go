@@ -37,6 +37,11 @@ func (m *MockStore) GetEvents(ctx context.Context, filter store.EventFilter) ([]
 	return filtered, nil
 }
 
+func (m *MockStore) SaveDeviceLog(ctx context.Context, log *store.DeviceLog) error { return nil }
+func (m *MockStore) GetDeviceLogs(ctx context.Context, deviceID string, limit int) ([]*store.DeviceLog, error) {
+	return nil, nil
+}
+
 // Employee store methods (not used in these tests)
 func (m *MockStore) CreateEmployee(ctx context.Context, e *employees.Employee) error { return nil }
 func (m *MockStore) GetEmployee(ctx context.Context, id string) (*employees.Employee, error) {

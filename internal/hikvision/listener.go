@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 // EventListener listens for real-time events from Hikvision devices.
@@ -91,7 +93,7 @@ func (l *EventListener) pollEvents() {
 		case <-l.ctx.Done():
 			return
 		case <-ticker.C:
-			events, err := l.GetRecentEvents()
+			events, err := l.client.GetRecentEvents(l.ctx)
 			if err != nil {
 				continue
 			}
@@ -113,46 +115,82 @@ func (l *EventListener) notifyHandlers(event *AttendanceEvent) {
 	}
 }
 
-// GetRecentEvents fetches recent attendance events from the device via ISAPI.
-// Uses the shared Client so Digest Auth is handled automatically.
-func (l *EventListener) GetRecentEvents() ([]*AttendanceEvent, error) {
-	ctx, cancel := context.WithTimeout(l.ctx, 10*time.Second)
-	defer cancel()
+// GetEventsInRange fetches attendance events from the device via ISAPI for a specific time range.
+func (c *Client) GetEventsInRange(ctx context.Context, start, end time.Time) ([]*AttendanceEvent, error) {
+	// For this device, JSON is required and strict about the time format.
+	// We'll use the format: 2026-04-25T17:53:41+08:00
+	// We'll try to detect the offset or use +08:00 as a fallback.
+	offset := "+08:00" 
+	
+	reqBody := map[string]interface{}{
+		"AcsEventCond": map[string]interface{}{
+			"searchID":             fmt.Sprintf("search-%d", time.Now().UnixMilli()),
+			"searchResultPosition": 0,
+			"maxResults":           1000,
+			"major":                0,
+			"minor":                0,
+			"startTime":           start.Format("2006-01-02T15:04:05") + offset,
+			"endTime":             end.Format("2006-01-02T15:04:05") + offset,
+		},
+	}
 
-	// K1T343EWX uses this endpoint for attendance log records.
-	const path = "/ISAPI/AccessControl/AttendenceLog?format=json"
-
-	resp, err := l.client.Do(ctx, "GET", path, nil, nil)
+	body, _ := json.Marshal(reqBody)
+	resp, err := c.Do(ctx, "POST", "/ISAPI/AccessControl/AcsEvent?format=json", 
+		map[string]string{"Content-Type": "application/json"}, body)
+	
 	if err != nil {
-		return nil, fmt.Errorf("fetch attendance log: %w", err)
+		// Fallback to XML if JSON is not supported (older devices)
+		log.Debug().Err(err).Msg("JSON AcsEvent failed, trying XML fallback")
+		return c.getEventsInRangeXML(ctx, start, end)
 	}
 
-	var result struct {
-		AttendenceLogData struct {
-			AttendenceLog []struct {
-				EmployeeNo string `json:"employeeNo"`
-				VerifyMode string `json:"verifyMode"`
-				DoorID     string `json:"doorID"`
-				EventType  string `json:"eventType"`
-				Timestamp  string `json:"time"`
-			} `json:"AttendenceLog"`
-		} `json:"AttendenceLogData"`
+	// Parse JSON Response
+	type acsEvent struct {
+		EmployeeNo       string `json:"employeeNo"`
+		EmployeeNoString string `json:"employeeNoString"`
+		Time             string `json:"time"`
+		Major            int    `json:"major"`
+		Minor            int    `json:"minor"`
+	}
+	type acsEventRes struct {
+		AcsEvent struct {
+			TotalMatches int        `json:"totalMatches"`
+			InfoList     []acsEvent `json:"InfoList"`
+		} `json:"AcsEvent"`
 	}
 
-	if err := json.Unmarshal(resp, &result); err != nil {
-		return nil, fmt.Errorf("decode attendance log: %w", err)
+	var res acsEventRes
+	if err := json.Unmarshal(resp, &res); err != nil {
+		return nil, fmt.Errorf("unmarshal JSON AcsEvent: %w", err)
 	}
 
-	events := make([]*AttendanceEvent, 0, len(result.AttendenceLogData.AttendenceLog))
-	for _, entry := range result.AttendenceLogData.AttendenceLog {
-		// Hikvision uses "yyyy-MM-dd'T'HH:mm:ss" without timezone; treat as local.
-		ts, _ := time.ParseInLocation("2006-01-02T15:04:05", entry.Timestamp, time.Local)
+	var events []*AttendanceEvent
+	for _, info := range res.AcsEvent.InfoList {
+		empNo := info.EmployeeNoString
+		if empNo == "" {
+			empNo = info.EmployeeNo
+		}
+		if empNo == "" {
+			continue
+		}
+
+		// We ignore the timezone offset from the device and treat it as local wall clock time.
+		// This is necessary because devices often have a different timezone (+08:00) than the server,
+		// but the wall clocks are synchronized.
+		timePart := info.Time
+		if len(timePart) > 19 {
+			timePart = timePart[:19]
+		}
+		t, _ := time.ParseInLocation("2006-01-02T15:04:05", strings.Replace(timePart, " ", "T", 1), time.Local)
+		if t.IsZero() {
+			t, _ = time.ParseInLocation("2006-01-02 15:04:05", timePart, time.Local)
+		}
+
 		events = append(events, &AttendanceEvent{
-			EmployeeNo:    entry.EmployeeNo,
-			DeviceID:      l.client.Host,
-			Timestamp:     ts,
-			EventType:     entry.EventType,
-			DoorID:        entry.DoorID,
+			EmployeeNo:    empNo,
+			DeviceID:      c.Host,
+			Timestamp:     t,
+			EventType:     fmt.Sprintf("Major%d-Minor%d", info.Major, info.Minor),
 			Verified:      true,
 			AccessGranted: true,
 		})
@@ -160,6 +198,83 @@ func (l *EventListener) GetRecentEvents() ([]*AttendanceEvent, error) {
 
 	return events, nil
 }
+
+func (c *Client) getEventsInRangeXML(ctx context.Context, start, end time.Time) ([]*AttendanceEvent, error) {
+	xmlBody := fmt.Sprintf(`<?xml version="1.0" encoding="utf-8"?>
+<AcsEventCond xmlns="http://www.isapi.org/ver20/XMLSchema">
+	<searchID>%s</searchID>
+	<searchResultPosition>0</searchResultPosition>
+	<maxResults>1000</maxResults>
+	<major>0</major>
+	<minor>0</minor>
+	<startTime>%s</startTime>
+	<endTime>%s</endTime>
+</AcsEventCond>`, 
+		uuid(), 
+		start.Format("2006-01-02T15:04:05Z"),
+		end.Format("2006-01-02T15:04:05Z"))
+
+	resp, err := c.Do(ctx, "POST", "/ISAPI/AccessControl/AcsEvent", 
+		map[string]string{"Content-Type": "application/xml"}, []byte(xmlBody))
+	if err != nil {
+		return nil, err
+	}
+
+	type acsEvent struct {
+		EmployeeNo string `xml:"employeeNo"`
+		Time       string `xml:"time"`
+		Major      int    `xml:"major"`
+		Minor      int    `xml:"minor"`
+	}
+	type acsEventRes struct {
+		XMLName      xml.Name   `xml:"AcsEvent"`
+		TotalMatches int        `xml:"totalMatches"`
+		InfoList     []acsEvent `xml:"InfoList>AcsEvent"`
+	}
+
+	var res acsEventRes
+	if err := xml.Unmarshal(resp, &res); err != nil {
+		return nil, err
+	}
+
+	var events []*AttendanceEvent
+	for _, info := range res.InfoList {
+		if info.EmployeeNo == "" {
+			continue
+		}
+		timePart := info.Time
+		if len(timePart) > 19 {
+			timePart = timePart[:19]
+		}
+		t, _ := time.ParseInLocation("2006-01-02T15:04:05", strings.Replace(timePart, " ", "T", 1), time.Local)
+		if t.IsZero() {
+			t, _ = time.ParseInLocation("2006-01-02 15:04:05", timePart, time.Local)
+		}
+
+		events = append(events, &AttendanceEvent{
+			EmployeeNo:    info.EmployeeNo,
+			DeviceID:      c.Host,
+			Timestamp:     t,
+			EventType:     fmt.Sprintf("Major%d-Minor%d", info.Major, info.Minor),
+			Verified:      true,
+			AccessGranted: true,
+		})
+	}
+	return events, nil
+}
+
+// GetRecentEvents fetches recent attendance events (last 24h) from the device.
+func (c *Client) GetRecentEvents(ctx context.Context) ([]*AttendanceEvent, error) {
+	return c.GetEventsInRange(ctx, time.Now().Add(-24*time.Hour), time.Now().Add(1*time.Hour))
+}
+
+func uuid() string {
+	_, _ =  time.Now().UnixNano(), 0 // dummy
+	// For searchID, a simple string is often enough for Hikvision
+	return fmt.Sprintf("search-%d", time.Now().UnixMilli())
+}
+
+
 
 // PushListener receives push notifications from Hikvision devices via HTTP
 type PushListener struct {

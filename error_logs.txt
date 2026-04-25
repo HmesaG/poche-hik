@@ -1,0 +1,6 @@
+FECHA Y HORA			DISPOSITIVO	NIVEL	OPERACION	MENSAJE DE ERROR
+-----------------------------------------------------------------------------------------------------------------
+2026-04-25 11:39:59	5d3ed228...	ERROR	Revocar acceso	ISAPI 400: Operación Inválida (DeleteUser failed)
+-----------------------------------------------------------------------------------------------------------------
+NOTAS: El error 400 en ISAPI suele indicar que el formato de la petición (XML/JSON) no es soportado o que los datos enviados son incorrectos para el firmware actual.
+Se está procediendo a actualizar el manejador de borrado para soportar JSON.

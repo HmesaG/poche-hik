@@ -4,6 +4,7 @@ import (
 	"context"
 	"ponches/internal/store"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -90,25 +91,28 @@ func (p *EventProcessor) ProcessEvents(employeeNo string, date time.Time, events
 
 	// First event is check-in, last is check-out
 	checkIn := sortedEvents[0].Timestamp
-
 	result.CheckIn = &checkIn
+	result.IsAbsent = false
 
 	if len(events) == 1 {
-		result.IsAbsent = true
 		result.IsIncomplete = true
-		result.Notes = "Incomplete attendance record"
+		result.Notes = "Solo un marcaje detectado"
 		return result
 	}
 
 	checkOut := sortedEvents[len(sortedEvents)-1].Timestamp
 	result.CheckOut = &checkOut
 
+	// Total duration in hours
 	duration := checkOut.Sub(checkIn).Hours()
 
-	// Deduct lunch break if applicable
-	lunchHours := float64(p.config.LunchBreakMinutes) / 60.0
-	if duration > lunchHours {
+	// Deduct lunch break only if working more than 5 hours
+	if duration > 5.0 {
+		lunchHours := float64(p.config.LunchBreakMinutes) / 60.0
 		duration -= lunchHours
+		if duration < 0 {
+			duration = 0
+		}
 	}
 	result.TotalHours = duration
 
@@ -124,19 +128,21 @@ func (p *EventProcessor) ProcessEvents(employeeNo string, date time.Time, events
 
 // checkLateness determines if the employee was late based on check-in time
 func (p *EventProcessor) checkLateness(checkIn time.Time) bool {
-	shiftStart, err := time.Parse("15:04", p.config.ShiftStart)
-	if err != nil {
+	shiftStartParts := strings.Split(p.config.ShiftStart, ":")
+	if len(shiftStartParts) != 2 {
 		return false
 	}
+	
+	hour, _ := strconv.Atoi(shiftStartParts[0])
+	min, _ := strconv.Atoi(shiftStartParts[1])
 
-	// Parse actual check-in time (hours and minutes only)
-	actualIn := time.Date(0, 1, 1, checkIn.Hour(), checkIn.Minute(), 0, 0, time.Local)
-	shiftStart = time.Date(0, 1, 1, shiftStart.Hour(), shiftStart.Minute(), 0, 0, time.Local)
-
+	// Current date with shift start time
+	startOfShift := time.Date(checkIn.Year(), checkIn.Month(), checkIn.Day(), hour, min, 0, 0, checkIn.Location())
+	
 	// Add grace period
-	allowedTime := shiftStart.Add(time.Duration(p.config.GracePeriodMinutes) * time.Minute)
+	allowedTime := startOfShift.Add(time.Duration(p.config.GracePeriodMinutes) * time.Minute)
 
-	return actualIn.After(allowedTime)
+	return checkIn.After(allowedTime)
 }
 
 // calculateHours splits total hours into regular and overtime

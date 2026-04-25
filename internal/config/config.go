@@ -23,6 +23,7 @@ type Config struct {
 
 	// Default Device Credentials
 	HikvisionIP       string
+	HikvisionPort     int
 	HikvisionUsername string
 	HikvisionPassword string
 
@@ -51,6 +52,9 @@ type Config struct {
 	// JWT Authentication
 	JWTSecret     string
 	JWTExpiration int // in hours
+
+	// Modular Features
+	TravelEnabled bool
 }
 
 // Load loads the configuration from environment variables or .env file
@@ -68,6 +72,7 @@ func Load() (*Config, error) {
 		CompanyRNC:               getEnv("COMPANY_RNC", ""),
 		SADPTimeoutSeconds:       getEnvAsInt("SADP_TIMEOUT_SECONDS", 5),
 		HikvisionIP:              getEnv("HIKVISION_IP", "192.168.1.64"),
+		HikvisionPort:            getEnvAsInt("HIKVISION_PORT", 80),
 		HikvisionUsername:        getEnv("HIKVISION_USERNAME", ""),
 		HikvisionPassword:        getEnv("HIKVISION_PASSWORD", ""),
 		DefaultShiftStart:        getEnv("DEFAULT_SHIFT_START", "08:00"),
@@ -88,6 +93,7 @@ func Load() (*Config, error) {
 		LDAPPosFilter:            getEnv("LDAP_POS_FILTER", "(objectClass=group)"),
 		JWTSecret:                getEnv("JWT_SECRET", "ponches-secret-key-change-in-production"),
 		JWTExpiration:            getEnvAsInt("JWT_EXPIRATION_HOURS", 24),
+		TravelEnabled:            getEnvAsBool("TRAVEL_ENABLED", true),
 	}
 
 	return cfg, nil
@@ -112,6 +118,14 @@ func getEnvAsInt(key string, defaultVal int) int {
 func getEnvAsFloat(key string, defaultVal float64) float64 {
 	valueStr := getEnv(key, "")
 	if value, err := strconv.ParseFloat(valueStr, 64); err == nil {
+		return value
+	}
+	return defaultVal
+}
+
+func getEnvAsBool(key string, defaultVal bool) bool {
+	valueStr := getEnv(key, "")
+	if value, err := strconv.ParseBool(valueStr); err == nil {
 		return value
 	}
 	return defaultVal

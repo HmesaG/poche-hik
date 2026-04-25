@@ -2,11 +2,13 @@ package hikvision
 
 import (
 	"context"
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/rs/zerolog/log"
 	"ponches/internal/employees"
 )
 
@@ -17,33 +19,33 @@ import (
 // userInfoList wraps UserInfo records for bulk creation/update.
 // The device expects: POST /ISAPI/AccessControl/UserInfo/Record
 type userInfoList struct {
-	XMLName  xml.Name    `xml:"UserInfoList"`
-	XMLNS    string      `xml:"xmlns,attr"`
-	UserInfo []userInfoXML `xml:"UserInfo"`
+	XMLName  xml.Name      `xml:"UserInfoList" json:"-"`
+	XMLNS    string        `xml:"xmlns,attr" json:"-"`
+	UserInfo []userInfoXML `xml:"UserInfo" json:"UserInfo"`
 }
 
 // userInfoXML is the full ISAPI representation of a user/employee on the device.
 type userInfoXML struct {
-	EmployeeNo string `xml:"employeeNo"`
-	Name       string `xml:"name"`
+	EmployeeNo string `xml:"employeeNo" json:"employeeNo"`
+	Name       string `xml:"name" json:"name"`
 	// userType: normal | visitor | blackList | administrator
-	UserType string `xml:"userType"`
+	UserType string `xml:"userType" json:"userType"`
 	// gender: male | female
-	Gender     string   `xml:"gender,omitempty"`
-	Valid       validXML `xml:"Valid"`
-	DoorRight  string   `xml:"doorRight"`      // "1" = door 1
-	RightPlan  []rightPlanXML `xml:"RightPlan"`
+	Gender     string         `xml:"gender,omitempty" json:"gender,omitempty"`
+	Valid      validXML       `xml:"Valid" json:"Valid"`
+	DoorRight  string         `xml:"doorRight" json:"doorRight"`
+	RightPlan  []rightPlanXML `xml:"RightPlan" json:"RightPlan"`
 }
 
 type validXML struct {
-	Enable    bool   `xml:"enable"`
-	BeginTime string `xml:"beginTime"` // "2020-01-01T00:00:00"
-	EndTime   string `xml:"endTime"`   // "2037-12-31T23:59:59"
+	Enable    bool   `xml:"enable" json:"enable"`
+	BeginTime string `xml:"beginTime" json:"beginTime"`
+	EndTime   string `xml:"endTime" json:"endTime"`
 }
 
 type rightPlanXML struct {
-	DoorNo          int    `xml:"doorNo"`
-	PlanTemplateNo  string `xml:"planTemplateNo"` // "1" = unrestricted
+	DoorNo         int    `xml:"doorNo" json:"doorNo"`
+	PlanTemplateNo string `xml:"planTemplateNo" json:"planTemplateNo"`
 }
 
 // userInfoSearchCond is the search request body for /ISAPI/AccessControl/UserInfo/Search.
@@ -190,18 +192,12 @@ func (c *Client) UpdateUser(ctx context.Context, emp *employees.Employee) error 
 	return nil
 }
 
-// CreateUsers registers multiple employees on the device in batches.
-// Corresponds to: POST /ISAPI/AccessControl/UserInfo/Record
+// CreateUsers registers multiple employees on the device one by one.
+// The K1T343EWX /Record endpoint accepts a single UserInfo object per request.
 func (c *Client) CreateUsers(ctx context.Context, emps []*employees.Employee) error {
-	const batchSize = 100
-	for i := 0; i < len(emps); i += batchSize {
-		end := i + batchSize
-		if end > len(emps) {
-			end = len(emps)
-		}
-
-		if err := c.upsertBatch(ctx, emps[i:end]); err != nil {
-			return err
+	for _, emp := range emps {
+		if err := c.upsertBatch(ctx, []*employees.Employee{emp}); err != nil {
+			return fmt.Errorf("create user %q: %w", emp.EmployeeNo, err)
 		}
 	}
 	return nil
@@ -253,21 +249,24 @@ func (c *Client) GetUsers(ctx context.Context) ([]userInfoXML, error) {
 }
 
 // DeleteUser removes a user from the device by employeeNo.
-// Corresponds to: PUT /ISAPI/AccessControl/UserInfo/Delete
 func (c *Client) DeleteUser(ctx context.Context, employeeNo string) error {
-	cond := userInfoDelCond{
-		XMLNS: isapiNS,
-		EmployeeIDs: []employeeNoXML{
-			{EmployeeNo: employeeNo},
+	// K1T343EWX expects JSON format for delete operations
+	// Standard ISAPI JSON structure for deletion
+	req := map[string]interface{}{
+		"UserInfoDelCond": map[string]interface{}{
+			"EmployeeNoList": []map[string]interface{}{
+				{"employeeNo": employeeNo},
+			},
 		},
 	}
 
-	payload, err := xml.Marshal(cond)
+	payload, err := json.Marshal(req)
 	if err != nil {
 		return fmt.Errorf("marshal delete cond: %w", err)
 	}
 
-	if _, err := c.Do(ctx, "PUT", "/ISAPI/AccessControl/UserInfo/Delete", nil, xmlHeader(payload)); err != nil {
+	if _, err := c.Do(ctx, "PUT", "/ISAPI/AccessControl/UserInfo/Delete?format=json",
+		map[string]string{"Content-Type": "application/json"}, payload); err != nil {
 		return fmt.Errorf("delete user %q: %w", employeeNo, err)
 	}
 	return nil
@@ -301,25 +300,54 @@ func (c *Client) DeleteUsers(ctx context.Context, employeeNos []string) error {
 // Private helpers
 // --------------------------------------------------------------------------
 
-// upsertBatch sends a single POST request with a list of users.
+// upsertBatch sends a single employee to the device as a JSON object.
+// If the user already exists (POST fails with employeeNoAlreadyExist), it deletes and recreates.
 func (c *Client) upsertBatch(ctx context.Context, emps []*employees.Employee) error {
-	infos := make([]userInfoXML, len(emps))
-	for i, e := range emps {
-		infos[i] = *EmployeeToUserInfo(e)
-	}
+	for _, emp := range emps {
+		info := EmployeeToUserInfo(emp)
 
-	list := userInfoList{
-		XMLNS:    isapiNS,
-		UserInfo: infos,
-	}
+		// Wrap in a single-user envelope matching what K1T343EWX accepts
+		envelope := map[string]interface{}{
+			"UserInfo": info,
+		}
 
-	payload, err := xml.Marshal(list)
-	if err != nil {
-		return fmt.Errorf("marshal user list: %w", err)
-	}
+		payload, err := json.Marshal(envelope)
+		if err != nil {
+			return fmt.Errorf("marshal user %q: %w", emp.EmployeeNo, err)
+		}
 
-	if _, err := c.Do(ctx, "POST", "/ISAPI/AccessControl/UserInfo/Record", nil, xmlHeader(payload)); err != nil {
-		return fmt.Errorf("bulk update users: %w", err)
+		// Try POST (Create)
+		_, err = c.Do(ctx, "POST", "/ISAPI/AccessControl/UserInfo/Record?format=json",
+			map[string]string{"Content-Type": "application/json"}, payload)
+
+		if err != nil {
+			// Check if it's a "already exists" error
+			if isAPIErr, ok := err.(*ISAPIError); ok && isAPIErr.StatusCode == 400 {
+				bodyStr := string(isAPIErr.Body)
+				if strings.Contains(bodyStr, "employeeNoAlreadyExist") || strings.Contains(bodyStr, "Duplicate") {
+					// User exists - Try Update via Modify endpoint first (more efficient)
+					_, modErr := c.Do(ctx, "PUT", "/ISAPI/AccessControl/UserInfo/Modify?format=json",
+						map[string]string{"Content-Type": "application/json"}, payload)
+					
+					if modErr == nil {
+						continue
+					}
+
+					// If Modify fails, fall back to Delete + Recreate (nuclear option)
+					log.Debug().Str("employeeNo", emp.EmployeeNo).Msg("Modify failed, attempting delete and recreate")
+					if delErr := c.DeleteUser(ctx, emp.EmployeeNo); delErr != nil {
+						return fmt.Errorf("delete existing user %q before update: %w", emp.EmployeeNo, delErr)
+					}
+					// Retry POST after delete
+					if _, postErr := c.Do(ctx, "POST", "/ISAPI/AccessControl/UserInfo/Record?format=json",
+						map[string]string{"Content-Type": "application/json"}, payload); postErr != nil {
+						return fmt.Errorf("recreate user %q after delete: %w", emp.EmployeeNo, postErr)
+					}
+					continue
+				}
+			}
+			return fmt.Errorf("create user %q: %w", emp.EmployeeNo, err)
+		}
 	}
 	return nil
 }

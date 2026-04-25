@@ -5,7 +5,9 @@ import (
 	"net/http"
 	"ponches/internal/attendance"
 	"ponches/internal/reports"
+	"ponches/internal/store"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/xuri/excelize/v2"
@@ -376,15 +378,51 @@ func (s *Server) handleGetStats(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Get device count (simplified - would need device tracking)
-	devices := 0
+	// Get device count
+	devices, _ := s.loadManagedDevices(r.Context())
+	deviceCount := len(devices)
+
+	// Get recent events (last 10)
+	recentEvents, _ := s.Store.GetEvents(r.Context(), store.EventFilter{
+		From: time.Now().Add(-24 * time.Hour),
+		To:   time.Now().Add(1 * time.Hour),
+	})
+	
+	// Sort by timestamp descending
+	sort.Slice(recentEvents, func(i, j int) bool {
+		return recentEvents[i].Timestamp.After(recentEvents[j].Timestamp)
+	})
+	
+	if len(recentEvents) > 10 {
+		recentEvents = recentEvents[:10]
+	}
+
+	// Fetch employee names for recent events
+	type EventWithEmployee struct {
+		store.AttendanceEvent
+		EmployeeName string `json:"employeeName"`
+	}
+	
+	eventsWithNames := make([]EventWithEmployee, 0, len(recentEvents))
+	for _, ev := range recentEvents {
+		emp, _ := s.Store.GetEmployeeByNo(r.Context(), ev.EmployeeNo)
+		name := "Desconocido"
+		if emp != nil {
+			name = emp.FirstName + " " + emp.LastName
+		}
+		eventsWithNames = append(eventsWithNames, EventWithEmployee{
+			AttendanceEvent: *ev,
+			EmployeeName:    name,
+		})
+	}
 
 	stats := map[string]interface{}{
-		"present": present,
-		"late":    late,
-		"absent":  absent,
-		"devices": devices,
-		"date":    today.Format("2006-01-02"),
+		"present":      present,
+		"late":         late,
+		"absent":       absent,
+		"devices":      deviceCount,
+		"date":         today.Format("2006-01-02"),
+		"recentEvents": eventsWithNames,
 	}
 
 	writeJSON(w, http.StatusOK, stats)
@@ -625,7 +663,7 @@ func (s *Server) handleReportKPIs(w http.ResponseWriter, r *http.Request) {
 }
 
 // buildAttendancePeriodRows is the shared data-fetch logic for attendance period reports.
-func (s *Server) buildAttendancePeriodRows(r *http.Request, fromStr, toStr, filterEmployee, filterDept string) ([]reports.AttendanceRow, time.Time, time.Time, error) {
+func (s *Server) buildAttendancePeriodRows(r *http.Request, fromStr, toStr, filterEmployee, filterDept, search, status string) ([]reports.AttendanceRow, time.Time, time.Time, error) {
 	now := time.Now()
 	var from, to time.Time
 	var err error
@@ -662,6 +700,21 @@ func (s *Server) buildAttendancePeriodRows(r *http.Request, fromStr, toStr, filt
 	nameMap := map[string]string{}
 	deptMap := map[string]string{}
 
+	// Fetch ALL events for the entire date range once
+	allEvents, err := s.Store.GetEvents(r.Context(), store.EventFilter{
+		From: from,
+		To:   to.Add(24 * time.Hour),
+	})
+	if err != nil {
+		return nil, from, to, err
+	}
+
+	// Map events by employee to avoid N+1 processing
+	eventsByEmp := make(map[string][]*store.AttendanceEvent)
+	for _, ev := range allEvents {
+		eventsByEmp[ev.EmployeeNo] = append(eventsByEmp[ev.EmployeeNo], ev)
+	}
+
 	cfg := attendance.AttendanceConfig{
 		ShiftStart:         s.Config.DefaultShiftStart,
 		ShiftEnd:           s.Config.DefaultShiftEnd,
@@ -687,27 +740,57 @@ func (s *Server) buildAttendancePeriodRows(r *http.Request, fromStr, toStr, filt
 		nameMap[emp.EmployeeNo] = emp.FirstName + " " + emp.LastName
 		deptMap[emp.EmployeeNo] = deptNameMap[emp.DepartmentID]
 
-		results, err := processor.CalculateDateRange(r.Context(), emp.EmployeeNo, from, to)
-		if err != nil {
-			continue
+		// Process rows in memory for this employee
+		empEvents := eventsByEmp[emp.EmployeeNo]
+		
+		// Map employee events by day for faster lookup
+		dayEventsMap := make(map[string][]*store.AttendanceEvent)
+		for _, ev := range empEvents {
+			dKey := ev.Timestamp.Format("2006-01-02")
+			dayEventsMap[dKey] = append(dayEventsMap[dKey], ev)
 		}
-		dayResults := make([]attendance.DayResult, len(results))
-		for i, dr := range results {
-			dayResults[i] = *dr
+
+		results := make([]attendance.DayResult, 0)
+		curr := from
+		for !curr.After(to) {
+			dKey := curr.Format("2006-01-02")
+			dayEvs := dayEventsMap[dKey]
+			
+			res := processor.ProcessEvents(emp.EmployeeNo, curr, dayEvs)
+			res.EmployeeName = nameMap[emp.EmployeeNo]
+			results = append(results, *res)
+			
+			curr = curr.Add(24 * time.Hour)
 		}
-		employeeResults[emp.EmployeeNo] = dayResults
+		employeeResults[emp.EmployeeNo] = results
 	}
 
 	rows := reports.BuildAttendanceRows(employeeResults, nameMap, deptMap)
 
-	sort.Slice(rows, func(i, j int) bool {
-		if rows[i].EmployeeName != rows[j].EmployeeName {
-			return rows[i].EmployeeName < rows[j].EmployeeName
+	// Final filtering by search and status
+	filteredRows := make([]reports.AttendanceRow, 0)
+	search = strings.ToLower(search)
+	for _, row := range rows {
+		if status != "" && row.Status != status {
+			continue
 		}
-		return rows[i].Date.Before(rows[j].Date)
+		if search != "" {
+			hay := strings.ToLower(row.EmployeeName + " " + row.EmployeeNo)
+			if !strings.Contains(hay, search) {
+				continue
+			}
+		}
+		filteredRows = append(filteredRows, row)
+	}
+
+	sort.Slice(filteredRows, func(i, j int) bool {
+		if filteredRows[i].EmployeeName != filteredRows[j].EmployeeName {
+			return filteredRows[i].EmployeeName < filteredRows[j].EmployeeName
+		}
+		return filteredRows[i].Date.Before(filteredRows[j].Date)
 	})
 
-	return rows, from, to, nil
+	return filteredRows, from, to, nil
 }
 
 // handleReportAttendancePeriod generates a downloadable attendance report (Excel or PDF).
@@ -718,6 +801,8 @@ func (s *Server) handleReportAttendancePeriod(w http.ResponseWriter, r *http.Req
 		r.URL.Query().Get("to"),
 		r.URL.Query().Get("employee"),
 		r.URL.Query().Get("department"),
+		r.URL.Query().Get("search"),
+		r.URL.Query().Get("status"),
 	)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -745,6 +830,8 @@ func (s *Server) handleReportAttendanceData(w http.ResponseWriter, r *http.Reque
 		r.URL.Query().Get("to"),
 		r.URL.Query().Get("employee"),
 		r.URL.Query().Get("department"),
+		r.URL.Query().Get("search"),
+		r.URL.Query().Get("status"),
 	)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

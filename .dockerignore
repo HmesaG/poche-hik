@@ -1,0 +1,11 @@
+.git
+.claude
+.gocache
+node_modules
+*.db
+*.exe
+*.bat
+error_logs.txt
+scratch
+.env*
+! .env.example

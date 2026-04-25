@@ -451,3 +451,127 @@ func TestSaveAndGetEvents(t *testing.T) {
 		t.Errorf("Expected 2 events for employee 001, got %d", len(filtered))
 	}
 }
+
+func TestTravelRateCRUD(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	ctx := context.Background()
+
+	// Create
+	rate := &employees.TravelAllowanceRate{
+		ID:     "rate-1",
+		Name:   "Interior",
+		Type:   "percentage",
+		Value:  25.0,
+		Active: true,
+	}
+	err := store.CreateTravelRate(ctx, rate)
+	if err != nil {
+		t.Fatalf("CreateTravelRate failed: %v", err)
+	}
+
+	// List
+	rates, err := store.ListTravelRates(ctx)
+	if err != nil {
+		t.Fatalf("ListTravelRates failed: %v", err)
+	}
+	if len(rates) != 1 {
+		t.Errorf("Expected 1 rate, got %d", len(rates))
+	}
+	if rates[0].Name != "Interior" {
+		t.Errorf("Expected name Interior, got %s", rates[0].Name)
+	}
+
+	// Update
+	rate.Value = 30.0
+	rate.Name = "Interior Premium"
+	err = store.UpdateTravelRate(ctx, rate)
+	if err != nil {
+		t.Fatalf("UpdateTravelRate failed: %v", err)
+	}
+
+	// Verify Update
+	rates, _ = store.ListTravelRates(ctx)
+	if rates[0].Value != 30.0 || rates[0].Name != "Interior Premium" {
+		t.Errorf("Update failed")
+	}
+
+	// Delete
+	err = store.DeleteTravelRate(ctx, rate.ID)
+	if err != nil {
+		t.Fatalf("DeleteTravelRate failed: %v", err)
+	}
+	rates, _ = store.ListTravelRates(ctx)
+	if len(rates) != 0 {
+		t.Error("Delete failed")
+	}
+}
+
+func TestTravelAllowanceCRUD(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	ctx := context.Background()
+
+	// Create employee and rate first
+	emp := &employees.Employee{ID: "emp-1", EmployeeNo: "001", FirstName: "Test", LastName: "User"}
+	store.CreateEmployee(ctx, emp)
+	rate := &employees.TravelAllowanceRate{ID: "rate-1", Name: "Fijo", Type: "fixed", Value: 1000.0}
+	store.CreateTravelRate(ctx, rate)
+
+	now := time.Now()
+	ta := &employees.TravelAllowance{
+		ID:               "ta-1",
+		EmployeeID:       emp.ID,
+		RateID:           rate.ID,
+		Destination:      "Santiago",
+		DepartureDate:    now,
+		ReturnDate:       now.AddDate(0, 0, 2),
+		Days:             3,
+		Reason:           "Instalación",
+		CalculatedAmount: 3000.0,
+		Status:           "Pending",
+	}
+
+	// Create
+	err := store.CreateTravelAllowance(ctx, ta)
+	if err != nil {
+		t.Fatalf("CreateTravelAllowance failed: %v", err)
+	}
+
+	// Get
+	retrieved, err := store.GetTravelAllowance(ctx, ta.ID)
+	if err != nil {
+		t.Fatalf("GetTravelAllowance failed: %v", err)
+	}
+	if retrieved == nil || retrieved.Destination != "Santiago" {
+		t.Fatal("Get failed or returned wrong data")
+	}
+	if retrieved.EmployeeName != "Test User" {
+		t.Errorf("Expected joined employee name 'Test User', got %q", retrieved.EmployeeName)
+	}
+
+	// List
+	list, err := store.ListTravelAllowances(ctx)
+	if err != nil {
+		t.Fatalf("ListTravelAllowances failed: %v", err)
+	}
+	if len(list) != 1 {
+		t.Errorf("Expected 1 allowance, got %d", len(list))
+	}
+
+	// Update
+	ta.Status = "Approved"
+	ta.ApprovalNotes = "OK"
+	err = store.UpdateTravelAllowance(ctx, ta)
+	if err != nil {
+		t.Fatalf("UpdateTravelAllowance failed: %v", err)
+	}
+
+	// Delete
+	err = store.DeleteTravelAllowance(ctx, ta.ID)
+	if err != nil {
+		t.Fatalf("DeleteTravelAllowance failed: %v", err)
+	}
+}

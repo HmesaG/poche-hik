@@ -1,11 +1,15 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"ponches/internal/auth"
 	"ponches/internal/ldap"
 	"strconv"
+	"time"
 )
 
 // handleGetConfig returns the current configuration
@@ -41,6 +45,7 @@ func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
 		"ldap_bind_dn":               s.Config.LDAPBindDN,
 		"ldap_user_filter":           s.Config.LDAPUserFilter,
 		"jwt_expiration_hours":       strconv.Itoa(s.Config.JWTExpiration),
+		"travel_module_enabled":     strconv.FormatBool(s.Config.TravelEnabled),
 	}
 
 	// Override with DB values if they exist
@@ -183,6 +188,11 @@ func (s *Server) handleUpdateConfig(w http.ResponseWriter, r *http.Request) {
 			s.Config.JWTExpiration = v
 		}
 	}
+	if val, ok := newCfg["travel_module_enabled"]; ok {
+		if v, err := strconv.ParseBool(val); err == nil {
+			s.Config.TravelEnabled = v
+		}
+	}
 
 	// Persist to database
 	if err := s.Store.SetMultipleConfigValues(ctx, newCfg); err != nil {
@@ -222,4 +232,40 @@ func (s *Server) handleSyncLDAP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "message": "Sincronización completada"})
+}
+func (s *Server) handleProxyRNC(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		RNC string `json:"RNC"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	apiUrl := "https://wptsoftwares.giize.com:54443/WPTConsultasDGIApiLocal/wptconsultasdgii/Contribuyentes"
+	payload, _ := json.Marshal(body)
+
+	req, err := http.NewRequestWithContext(r.Context(), "POST", apiUrl, bytes.NewBuffer(payload))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to create proxy request")
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	// Create client with timeout
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, fmt.Sprintf("Error connecting to external API: %v", err))
+		return
+	}
+	defer resp.Body.Close()
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(resp.StatusCode)
+	io.Copy(w, resp.Body)
 }

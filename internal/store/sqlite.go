@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"ponches/internal/employees"
+	"github.com/rs/zerolog/log"
 
 	_ "modernc.org/sqlite"
 )
@@ -146,6 +147,15 @@ func (s *SQLiteStore) initSchema() error {
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_leaves_employee ON leaves(employee_id);`,
 		`CREATE INDEX IF NOT EXISTS idx_leaves_dates ON leaves(start_date, end_date);`,
+		`CREATE TABLE IF NOT EXISTS device_logs (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			device_id TEXT NOT NULL,
+			operation TEXT NOT NULL,
+			error_message TEXT NOT NULL,
+			level TEXT DEFAULT 'error',
+			timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_device_logs_device ON device_logs(device_id);`,
 	}
 
 	for _, q := range queries {
@@ -253,9 +263,11 @@ func (s *SQLiteStore) ListEmployees(ctx context.Context) ([]*employees.Employee,
 
 // SaveEvent saves an attendance event to the database
 func (s *SQLiteStore) SaveEvent(ctx context.Context, event *AttendanceEvent) error {
-	_, err := s.db.ExecContext(ctx,
-		`INSERT INTO attendance_events (device_id, employee_no, timestamp, type) VALUES (?, ?, ?, ?)`,
-		event.DeviceID, event.EmployeeNo, event.Timestamp, event.Type)
+	query := `INSERT INTO attendance_events (device_id, employee_no, timestamp, type) VALUES (?, ?, ?, ?)`
+	_, err := s.db.ExecContext(ctx, query, event.DeviceID, event.EmployeeNo, event.Timestamp, event.Type)
+	if err == nil {
+		log.Info().Str("employee", event.EmployeeNo).Str("time", event.Timestamp.Format("15:04:05")).Msg("Attendance event saved to database")
+	}
 	return err
 }
 
@@ -400,8 +412,13 @@ func (s *SQLiteStore) CreateDepartment(ctx context.Context, d *employees.Departm
 
 func (s *SQLiteStore) ListDepartments(ctx context.Context) ([]*employees.Department, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT d.id, d.name, COALESCE(d.description,''), COALESCE(d.parent_id,''),
-		       COALESCE(d.manager_id,''), COALESCE(u.full_name,'')
+		SELECT 
+			d.id, 
+			d.name, 
+			COALESCE(d.description, ''), 
+			COALESCE(d.parent_id, ''), 
+			COALESCE(d.manager_id, ''), 
+			COALESCE(u.full_name, '') as manager_name
 		FROM departments d
 		LEFT JOIN users u ON d.manager_id = u.id
 		ORDER BY d.name`)
@@ -962,4 +979,43 @@ func (s *SQLiteStore) DeleteLeave(ctx context.Context, id string) error {
 		return sql.ErrNoRows
 	}
 	return nil
+}
+
+// ==================== DEVICE LOGS ====================
+
+func (s *SQLiteStore) SaveDeviceLog(ctx context.Context, log *DeviceLog) error {
+	_, err := s.db.ExecContext(ctx,
+		`INSERT INTO device_logs (device_id, operation, error_message, level) VALUES (?, ?, ?, ?)`,
+		log.DeviceID, log.Operation, log.ErrorMessage, log.Level)
+	return err
+}
+
+func (s *SQLiteStore) GetDeviceLogs(ctx context.Context, deviceID string, limit int) ([]*DeviceLog, error) {
+	query := `SELECT id, device_id, operation, error_message, level, timestamp FROM device_logs`
+	args := []interface{}{}
+	if deviceID != "" {
+		query += " WHERE device_id = ?"
+		args = append(args, deviceID)
+	}
+	query += " ORDER BY timestamp DESC"
+	if limit > 0 {
+		query += " LIMIT ?"
+		args = append(args, limit)
+	}
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []*DeviceLog
+	for rows.Next() {
+		l := &DeviceLog{}
+		if err := rows.Scan(&l.ID, &l.DeviceID, &l.Operation, &l.ErrorMessage, &l.Level, &l.Timestamp); err != nil {
+			return nil, err
+		}
+		list = append(list, l)
+	}
+	return list, nil
 }

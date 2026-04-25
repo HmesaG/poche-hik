@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"os"
 	"os/signal"
@@ -52,8 +53,51 @@ func main() {
 	go hub.Run()
 
 	// Init Hikvision Event Listener (if configured)
-	if cfg.HikvisionIP != "" && cfg.HikvisionUsername != "" {
-		listener := hikvision.NewEventListener(cfg.HikvisionIP, 80, cfg.HikvisionUsername, cfg.HikvisionPassword)
+	// Check for managed devices first, fall back to legacy env config
+	devices := loadManagedDevices(repo)
+	if len(devices) > 0 {
+		for i := range devices {
+			device := devices[i]
+			if device.IP == "" || device.Username == "" {
+				continue
+			}
+			listener := hikvision.NewEventListener(device.IP, device.Port, device.Username, device.Password)
+
+			// Add handler to broadcast events via WebSocket and save to DB
+			listener.AddHandler(func(event *hikvision.AttendanceEvent) {
+				// Save to database
+				storeEvent := &store.AttendanceEvent{
+					DeviceID:   event.DeviceID,
+					EmployeeNo: event.EmployeeNo,
+					Timestamp:  event.Timestamp,
+					Type:       event.EventType,
+				}
+				repo.SaveEvent(context.Background(), storeEvent)
+
+				// Get employee name for broadcast
+				emp, err := repo.GetEmployeeByNo(context.Background(), event.EmployeeNo)
+				employeeName := event.EmployeeNo
+				if err == nil && emp != nil {
+					employeeName = emp.FirstName + " " + emp.LastName
+				}
+
+				// Broadcast to WebSocket clients
+				hub.BroadcastAttendanceEvent(event.EmployeeNo, employeeName, event.DeviceID, event.Timestamp)
+
+				log.Info().Str("employeeNo", event.EmployeeNo).Time("timestamp", event.Timestamp).Str("device", device.Name).Msg("Attendance event received")
+			})
+
+			// Start listener in background
+			go func(d api.ManagedDevice) {
+				if err := listener.Start(); err != nil {
+					log.Warn().Err(err).Str("device", d.IP).Msg("Event listener stopped")
+				}
+			}(device)
+			log.Info().Str("device", device.IP).Str("name", device.Name).Msg("Hikvision event listener started")
+		}
+	} else if cfg.HikvisionIP != "" && cfg.HikvisionUsername != "" {
+		// Fallback to legacy env config
+		listener := hikvision.NewEventListener(cfg.HikvisionIP, cfg.HikvisionPort, cfg.HikvisionUsername, cfg.HikvisionPassword)
 
 		// Add handler to broadcast events via WebSocket and save to DB
 		listener.AddHandler(func(event *hikvision.AttendanceEvent) {
@@ -85,7 +129,7 @@ func main() {
 				log.Warn().Err(err).Msg("Event listener stopped")
 			}
 		}()
-		log.Info().Str("device", cfg.HikvisionIP).Msg("Hikvision event listener started")
+		log.Info().Str("device", cfg.HikvisionIP).Msg("Hikvision event listener started (legacy config)")
 	}
 
 	// Init Server
@@ -118,4 +162,19 @@ func main() {
 	}
 
 	log.Info().Msg("Server stopped gracefully")
+}
+
+// loadManagedDevices loads all managed devices from the database.
+func loadManagedDevices(repo *store.SQLiteStore) []api.ManagedDevice {
+	raw, err := repo.GetConfigValue(context.Background(), "managed_devices")
+	if err != nil || raw == "" {
+		return nil
+	}
+
+	var devices []api.ManagedDevice
+	if err := json.Unmarshal([]byte(raw), &devices); err != nil {
+		return nil
+	}
+
+	return devices
 }

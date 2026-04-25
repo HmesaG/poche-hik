@@ -22,7 +22,34 @@ function decodeInlineArg(value) {
     return decodeURIComponent(String(value ?? ''));
 }
 
+function initTheme() {
+    const btn = document.getElementById('btn-theme-toggle');
+    const body = document.body;
+    
+    // Load preference
+    const currentTheme = localStorage.getItem('theme') || 'dark';
+    if (currentTheme === 'light') {
+        body.setAttribute('data-theme', 'light');
+    } else {
+        body.removeAttribute('data-theme');
+    }
+    
+    if (btn) {
+        btn.addEventListener('click', () => {
+            const isLight = body.getAttribute('data-theme') === 'light';
+            if (isLight) {
+                body.removeAttribute('data-theme');
+                localStorage.setItem('theme', 'dark');
+            } else {
+                body.setAttribute('data-theme', 'light');
+                localStorage.setItem('theme', 'light');
+            }
+        });
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+    initTheme();
     initLeavesUI();
     initSystemIcons();
     initDashboardUI();
@@ -44,6 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initDepartments();
     initPositions();
     initDeviceManager();
+    initDeviceErrorManager();
     initTravelAllowances();
     initPWA();
     initAttendanceReport();
@@ -143,7 +171,8 @@ async function loadDashboardStats() {
         const mappings = {
             'stats-present': stats.present ?? 0,
             'stats-late': stats.late ?? 0,
-            'stats-absent': stats.absent ?? 0
+            'stats-absent': stats.absent ?? 0,
+            'stats-devices': stats.devices ?? 0
         };
 
         Object.entries(mappings).forEach(([id, value]) => {
@@ -152,6 +181,27 @@ async function loadDashboardStats() {
                 el.innerText = value;
             }
         });
+
+        // Update dashboard events table
+        const tbody = document.querySelector('#dashboard-events-table tbody');
+        if (tbody && stats.recentEvents) {
+            if (stats.recentEvents.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" class="text-muted" style="text-align: center; padding: 2rem;">No hay actividad reciente.</td></tr>';
+            } else {
+                tbody.innerHTML = stats.recentEvents.map(ev => `
+                    <tr>
+                        <td>${new Date(ev.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+                        <td>
+                            <div style="display:flex; flex-direction:column;">
+                                <strong>${escapeHTML(ev.employeeName)}</strong>
+                                <span style="font-size:0.7rem; color:var(--text-muted);">ID: ${ev.employeeNo}</span>
+                            </div>
+                        </td>
+                        <td><span class="badge badge-secondary" style="font-size:0.65rem;">${escapeHTML(ev.deviceId)}</span></td>
+                    </tr>
+                `).join('');
+            }
+        }
 
         const dateLabel = document.getElementById('dashboard-date-label');
         if (dateLabel) {
@@ -181,10 +231,21 @@ function hideLoginScreen() {
 
 async function validateSession() {
     try {
-        const resp = await fetch('/api/auth/me');
+        const token = sessionStorage.getItem('token');
+        if (!token) {
+            logout();
+            return;
+        }
+
+        const resp = await fetch('/api/auth/me', {
+            headers: getAuthHeaders()
+        });
 
         if (resp.ok) {
             currentUser = await resp.json();
+            // Ensure token is attached back if me response doesn't include it
+            if (!currentUser.token) currentUser.token = token;
+            
             hideLoginScreen();
             updateUserInfo();
             applyRolePermissions();
@@ -226,14 +287,19 @@ function initLogin() {
 
             if (resp.ok) {
                 currentUser = data.user;
+                if (data.token) {
+                    currentUser.token = data.token;
+                    sessionStorage.setItem('token', data.token);
+                }
 
                 hideLoginScreen();
                 updateUserInfo();
                 applyRolePermissions();
+                loadConfig();
                 initWebSocket();
                 loadManagedDevices();
                 loadDashboardStats();
-                showToast('¡Bienvenido, ' + currentUser.fullName + '!');
+                showToast('¡Bienvenido, ' + (currentUser.fullName || currentUser.username) + '!');
             } else {
                 errorEl.textContent = data.error || 'Credenciales inválidas';
             }
@@ -278,6 +344,7 @@ async function logout() {
     if (supportWrap) {
         supportWrap.classList.remove('open');
     }
+    sessionStorage.removeItem('token');
     currentUser = null;
     if (wsReconnectTimer) {
         clearTimeout(wsReconnectTimer);
@@ -367,12 +434,28 @@ function applyRolePermissions() {
     toggleRoleElement('btn-manage-rates', canManageTravelRates());
 
     if (settingsNav) {
-        settingsNav.classList.toggle('is-hidden-by-role', !canManageUsers());
+        settingsNav.classList.toggle('is-hidden-by-role', !isAdmin());
     }
     if (settingsPage) {
-        settingsPage.classList.toggle('is-hidden-by-role', !canManageUsers());
+        settingsPage.classList.toggle('is-hidden-by-role', !isAdmin());
     }
-    if (currentActivePage && ((!canManageUsers() && currentActivePage.id === 'settings') || (!canManageDevices() && currentActivePage.id === 'devices'))) {
+
+    // Toggle Travel Module visibility
+    const travelNav = document.querySelector('.sidebar nav li[data-page="travel-allowances"]');
+    const travelRatesNav = document.querySelector('.sidebar nav li[data-page="travel-rates"]');
+    const isTravelEnabled = window.isTravelModuleEnabled !== false; // Default to true if not set
+
+    if (travelNav) {
+        travelNav.classList.toggle('is-hidden-by-feature', !isTravelEnabled);
+        if (!isTravelEnabled && travelNav.classList.contains('active')) {
+             document.querySelector('.sidebar nav li[data-page="dashboard"]')?.click();
+        }
+    }
+    if (travelRatesNav) {
+        travelRatesNav.classList.toggle('is-hidden-by-feature', !isTravelEnabled);
+    }
+
+    if (currentActivePage && ((!isAdmin() && currentActivePage.id === 'settings') || (!canManageDevices() && currentActivePage.id === 'devices'))) {
         document.querySelector('.sidebar nav li[data-page="dashboard"]')?.click();
     }
 }
@@ -384,8 +467,10 @@ function toggleRoleElement(id, visible) {
 }
 
 function getAuthHeaders() {
+    const token = currentUser?.token || sessionStorage.getItem('token');
     return {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
     };
 }
 
@@ -409,6 +494,58 @@ function initConfig() {
     // Load config when viewing settings page
     loadConfig();
 
+    const btnConsult = document.getElementById('btn-consult-rnc');
+    if (btnConsult) {
+        btnConsult.addEventListener('click', async () => {
+            const rncInput = document.getElementById('config-company-rnc');
+            const rnc = rncInput.value.trim().replace(/-/g, '');
+            if (!rnc) {
+                showToast('Ingresa un RNC para consultar', 'warning');
+                return;
+            }
+
+            btnConsult.disabled = true;
+            btnConsult.innerHTML = '<span class="loading-spinner--xs"></span> Buscando...';
+
+            try {
+                // Consult using the backend proxy to avoid CORS/Connection issues
+                const resp = await fetch('/api/config/rnc-lookup', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ RNC: rnc })
+                });
+
+                if (resp.ok) {
+                    const result = await resp.json();
+                    
+                    // The API response might be an array or an object
+                    const data = Array.isArray(result) ? result[0] : result;
+                    
+                    // Mapping common field names for name/reason social from Dominican DGII APIs
+                    const companyName = data.Nombre || data.RazonSocial || data.NOMBRE_COMERCIAL || data.RAZON_SOCIAL || data.nombre || '';
+                    
+                    if (companyName) {
+                        const nameInput = form.querySelector('[name="company_name"]');
+                        if (nameInput) {
+                            nameInput.value = companyName;
+                            showToast('Empresa encontrada: ' + companyName);
+                        }
+                    } else {
+                        showToast('No se encontró información para este RNC', 'warning');
+                    }
+                } else {
+                    showToast('Error en la consulta. Verifica el RNC.', 'error');
+                }
+            } catch (err) {
+                console.error('RNC consultation failed', err);
+                showToast('Fallo en la conexión con la API de consulta', 'error');
+            } finally {
+                btnConsult.disabled = false;
+                btnConsult.innerHTML = '<svg style="width:16px;height:16px;"><use href="#icon-refresh"></use></svg> Consultar RNC';
+            }
+        });
+    }
+
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const formData = new FormData(form);
@@ -417,7 +554,8 @@ function initConfig() {
             company_name: rawData.company_name || '',
             company_rnc: rawData.company_rnc || '',
             grace_period_minutes: rawData.grace_period || '',
-            overtime_threshold_hours: rawData.work_hours || ''
+            overtime_threshold_hours: rawData.work_hours || '',
+            travel_module_enabled: form.querySelector('[name="travel_module_enabled"]').checked ? 'true' : 'false'
         };
 
         try {
@@ -431,6 +569,9 @@ function initConfig() {
 
             if (resp.ok) {
                 showToast(result.message || 'Configuración guardada y aplicada');
+                // Update local state and UI
+                window.isTravelModuleEnabled = data.travel_module_enabled === 'true';
+                applyRolePermissions();
             } else {
                 showToast(result.error || 'Error al guardar configuración', 'error');
             }
@@ -460,14 +601,23 @@ async function loadConfig() {
             'company_rnc': 'company_rnc',
             'grace_period_minutes': 'grace_period',
             'overtime_threshold_hours': 'work_hours',
+            'travel_module_enabled': 'travel_module_enabled',
         };
 
         for (const [apiKey, fieldName] of Object.entries(fieldMap)) {
             const field = form.querySelector(`[name="${fieldName}"]`);
             if (field && config[apiKey] !== undefined) {
-                field.value = config[apiKey];
+                if (field.type === 'checkbox') {
+                    field.checked = String(config[apiKey]) === 'true';
+                } else {
+                    field.value = config[apiKey];
+                }
             }
         }
+
+        // Set global state for feature toggles
+        window.isTravelModuleEnabled = config.travel_module_enabled === 'true';
+        applyRolePermissions();
     } catch (err) {
         console.error('Failed to load config', err);
     }
@@ -672,6 +822,31 @@ window.editEmployee = async (id) => {
         if (submitBtn) {
             submitBtn.innerText = 'Actualizar Empleado';
         }
+
+        // Show photo if available
+        const photoPreview = document.getElementById('employee-photo-preview');
+        const photoPlaceholder = document.getElementById('employee-photo-placeholder');
+        if (employee.faceId || employee.photoUrl) {
+            // Since we don't have a direct URL to the image stored in the device in the current local DB,
+            // we'll use a placeholder or a fetched image if we added that endpoint.
+            // For now, if faceId is set, we know there is a face.
+            // If photoUrl is set (from previous uploads), show it.
+            if (employee.photoUrl) {
+                photoPreview.src = employee.photoUrl;
+                photoPreview.style.display = 'block';
+                photoPlaceholder.style.display = 'none';
+            } else {
+                // Placeholder for "Face Registered"
+                photoPreview.style.display = 'none';
+                photoPlaceholder.style.display = 'flex';
+                photoPlaceholder.innerHTML = `<svg viewBox="0 0 24 24" style="width: 54px; height: 54px; color: var(--success); opacity: 0.8;"><use href="#icon-user"></use></svg><span style="font-size: 0.65rem; color: var(--success); margin-top: 5px;">Rostro OK</span>`;
+            }
+        } else {
+            photoPreview.style.display = 'none';
+            photoPlaceholder.style.display = 'flex';
+            photoPlaceholder.innerHTML = `<svg viewBox="0 0 24 24" style="width: 54px; height: 54px; opacity: 0.2;"><use href="#icon-user"></use></svg>`;
+        }
+
         document.getElementById('employee-modal').classList.add('active');
         return;
     } catch (err) {
@@ -750,6 +925,26 @@ function initEmployeeUI() {
     const form = document.getElementById('employee-form');
     const submitBtn = document.getElementById('employee-submit-btn');
 
+    // Image handling
+    const photoInput = document.getElementById('emp-photo-input');
+    const photoPreview = document.getElementById('employee-photo-preview');
+    const photoPlaceholder = document.getElementById('employee-photo-placeholder');
+
+    if (photoInput) {
+        photoInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (re) => {
+                    photoPreview.src = re.target.result;
+                    photoPreview.style.display = 'block';
+                    photoPlaceholder.style.display = 'none';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+
     if (btnAdd) {
         btnAdd.addEventListener('click', async () => {
             resetEmployeeForm(form);
@@ -757,6 +952,10 @@ function initEmployeeUI() {
             if (submitBtn) {
                 submitBtn.innerText = 'Guardar Empleado';
             }
+            // Clear photo preview
+            photoPreview.style.display = 'none';
+            photoPlaceholder.style.display = 'flex';
+            
             await loadEmployeeFormOptions();
             modal.classList.add('active');
         });
@@ -776,9 +975,13 @@ function initEmployeeUI() {
         data.baseSalary = data.baseSalary ? parseFloat(data.baseSalary) : 0;
         data.status = data.status || 'Active';
 
+        // Check if we have a photo to upload
+        const photoFile = photoInput?.files[0];
+
         try {
             const url = employeeId ? `/api/employees/${employeeId}` : '/api/employees';
             const method = employeeId ? 'PUT' : 'POST';
+            
             const resp = await fetch(url, {
                 method: method,
                 headers: getAuthHeaders(),
@@ -786,6 +989,34 @@ function initEmployeeUI() {
             });
 
             if (resp.ok) {
+                const savedEmp = await resp.json();
+                
+                // If there's a photo, and the employee was saved, upload face to device
+                if (photoFile) {
+                    const faceFormData = new FormData();
+                    faceFormData.append('photo', photoFile);
+                    
+                    const empNo = data.employeeNo || savedEmp.employeeNo;
+                    if (empNo) {
+                        try {
+                            const faceResp = await fetch(`/api/employees/${empNo}/face`, {
+                                method: 'POST',
+                                headers: {
+                                     // Authorization header is needed but headers: getAuthHeaders() results in JSON content-type
+                                     // for multipart we want the browser to set the boundary.
+                                     'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+                                },
+                                body: faceFormData
+                            });
+                            if (!faceResp.ok) {
+                                showToast('Empleado guardado, pero falló el registro facial', 'warning');
+                            }
+                        } catch (faceErr) {
+                            console.error('Face upload failed', faceErr);
+                        }
+                    }
+                }
+
                 showToast(employeeId ? 'Empleado actualizado correctamente' : 'Empleado guardado correctamente');
                 modal.classList.remove('active');
                 loadEmployees();
@@ -858,7 +1089,6 @@ function initNavigation() {
             if (pageId === 'employees') loadEmployees();
             if (pageId === 'departments') loadDepartments();
             if (pageId === 'positions') loadPositions();
-            if (pageId === 'attendance') loadAttendance();
             if (pageId === 'travel-allowances') loadTravelAllowances();
             if (pageId === 'leaves') loadLeaves();
 
@@ -884,7 +1114,8 @@ function initNavigation() {
 
             // Cargar datos según la página
             if (pageId === 'dashboard') loadDashboardStats();
-            if (pageId === 'devices') loadDevices();
+            if (pageId === 'devices') loadManagedDevices().then(() => DeviceErrorManager.fetchLogs().then(logs => DeviceErrorManager.renderLogs(logs)));
+            if (pageId === 'attendance' && window.loadAttendance) window.loadAttendance();
 
             document.querySelector('.content').scrollTop = 0;
         });
@@ -955,6 +1186,10 @@ function initWebSocket() {
         const data = JSON.parse(event.data);
         if (data.type === 'attendance') {
             addEventToTable(data);
+            // Also update dashboard table if we are on dashboard
+            addEventToDashboardTable(data);
+            // Refresh stats to update counters
+            loadDashboardStats();
         }
     };
 
@@ -994,6 +1229,36 @@ function addEventToTable(event) {
     if (tbody.children.length > 20) tbody.removeChild(tbody.lastChild);
 }
 
+function addEventToDashboardTable(event) {
+    const tbody = document.querySelector('#dashboard-events-table tbody');
+    if (!tbody) return;
+
+    // Remove empty state if present
+    if (tbody.querySelector('td[colspan]')) {
+        tbody.innerHTML = '';
+    }
+
+    const payload = event.data || event;
+    const row = document.createElement('tr');
+    
+    const date = new Date(payload.dateTime || payload.timestamp || Date.now());
+    const timeStr = date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
+    row.innerHTML = `
+        <td>${timeStr}</td>
+        <td>
+            <div style="display:flex; flex-direction:column;">
+                <strong>${escapeHTML(payload.employeeName || '---')}</strong>
+                <span style="font-size:0.7rem; color:var(--text-muted);">ID: ${payload.employeeNo || '---'}</span>
+            </div>
+        </td>
+        <td><span class="badge badge-secondary" style="font-size:0.65rem;">${escapeHTML(payload.deviceId || 'Device')}</span></td>
+    `;
+
+    tbody.prepend(row);
+    if (tbody.children.length > 10) tbody.removeChild(tbody.lastChild);
+}
+
 async function initScan() {
     const scanButtons = ['btn-scan', 'btn-refresh-devices', 'btn-scan-devices-inline'];
 
@@ -1007,8 +1272,8 @@ async function initScan() {
             btn.innerText = 'Escaneando...';
 
             try {
-                const resp = await fetch('/api/discovery/scan', {
-                    method: 'POST',
+                const resp = await fetch('/api/discovery/discover', {
+                    method: 'GET',
                     headers: getAuthHeaders()
                 });
                 const devices = await resp.json();
@@ -1045,7 +1310,7 @@ function renderDevices(devices) {
         <tr>
             <td>${escapeHTML(dev.DeviceType || 'Hikvision')}</td>
             <td>${escapeHTML(dev.DeviceSN || '---')}</td>
-            <td>${escapeHTML(dev.IPv4Address || '---')}</td>
+            <td><a href="http://${dev.IPv4Address}" target="_blank" class="device-ip-link">${escapeHTML(dev.IPv4Address || '---')}</a></td>
             <td><span class="badge badge-secondary">SADP</span></td>
             <td>
                 <button class="btn btn-sm" onclick="createManagedDeviceFromScan(decodeInlineArg('${encodeInlineArg(dev.IPv4Address || '')}'), decodeInlineArg('${encodeInlineArg(dev.DeviceType || 'Hikvision')}'), decodeInlineArg('${encodeInlineArg(dev.DeviceSN || '')}'))">Agregar</button>
@@ -1066,6 +1331,42 @@ function initDeviceManager() {
         if (!btn) return;
         btn.addEventListener('click', () => openDeviceModal());
     });
+
+    const btnRefreshStatus = document.getElementById('btn-refresh-devices-status');
+    if (btnRefreshStatus) {
+        btnRefreshStatus.addEventListener('click', () => loadManagedDevices());
+    }
+
+    const btnSyncAll = document.getElementById('btn-sync-all-config');
+    if (btnSyncAll) {
+        btnSyncAll.addEventListener('click', () => syncDeviceEmployees('default'));
+    }
+
+    const btnReadEvents = document.getElementById('btn-read-recent-events');
+    if (btnReadEvents) {
+        btnReadEvents.addEventListener('click', async () => {
+            btnReadEvents.disabled = true;
+            btnReadEvents.innerText = 'Leyendo...';
+            showToast('Leyendo eventos de dispositivos...');
+            try {
+                const resp = await fetch('/api/devices/read-events', {
+                    method: 'POST',
+                    headers: getAuthHeaders()
+                });
+                const result = await resp.json();
+                if (resp.ok) {
+                    showToast(`Se leyeron ${result.eventsRead} eventos nuevos.`);
+                } else {
+                    showToast(result.error || 'Error al leer eventos', 'error');
+                }
+            } catch (err) {
+                showToast('Error de conexión', 'error');
+            } finally {
+                btnReadEvents.disabled = false;
+                btnReadEvents.innerText = 'Leer Ponches Recientes';
+            }
+        });
+    }
 
     modal.querySelectorAll('.close-modal').forEach(btn => {
         btn.addEventListener('click', () => modal.classList.remove('active'));
@@ -1143,32 +1444,85 @@ function renderManagedDevices() {
     }
 
     if (!managedDevices || managedDevices.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-muted" style="text-align: center; padding: 2rem;">Aún no hay dispositivos administrados. Agrega uno manualmente o impórtalo desde SADP.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="text-muted" style="text-align: center; padding: 2rem;">Aún no hay dispositivos administrados. Agrega uno manualmente.</td></tr>';
         return;
     }
 
     tbody.innerHTML = managedDevices.map(device => `
-        <tr>
+        <tr class="${device.isOnline ? '' : 'device-row--offline'}">
             <td>
                 <div class="device-identity">
                     <strong>${escapeHTML(device.name || '')}</strong>
-                    <span class="text-muted">${escapeHTML(device.model || 'Terminal Hikvision')}</span>
+                    <span class="text-muted">${escapeHTML(device.model || 'Terminal Hikvision')} ${!device.isOnline ? '<span class="text-danger" style="font-size:0.7rem; margin-left:5px;">(Fuera de línea)</span>' : ''}</span>
                 </div>
             </td>
-            <td>${escapeHTML(device.ip || '')}:${device.port || 80}</td>
+            <td><a href="http://${device.ip}:${device.port || 80}" target="_blank" class="device-ip-link">${escapeHTML(device.ip || '')}:${device.port || 80}</a></td>
+            <td>
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <span class="badge ${device.isOnline ? 'badge-success' : 'badge-danger'}" title="${device.error || ''}">
+                        ${device.isOnline ? '● Conectado' : '● Desconectado'}
+                    </span>
+                    ${!device.isOnline && device.error ? `<span class="text-muted" style="font-size: 0.65rem; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHTML(device.error)}">${escapeHTML(device.error)}</span>` : ''}
+                </div>
+            </td>
             <td>${escapeHTML(device.username || '---')} ${device.hasPassword ? '<span class="badge badge-success">OK</span>' : '<span class="badge badge-warning">Sin clave</span>'}</td>
             <td>${device.isDefault ? '<span class="badge badge-success">Predeterminado</span>' : '<span class="badge badge-secondary">Secundario</span>'}</td>
             <td>
-                <div class="table-actions">
-                    ${device.isDefault ? '' : `<button class="btn btn-sm btn-secondary" onclick="setManagedDeviceDefault(decodeInlineArg('${encodeInlineArg(device.id || '')}'))">Usar</button>`}
-                    <div class="travel-actions">
-                        <button class="btn-action btn-action--primary" onclick="editManagedDevice(decodeInlineArg('${encodeInlineArg(device.id || '')}'))">Editar</button>
-                        <button class="btn-action btn-action--danger" onclick="deleteManagedDevice(decodeInlineArg('${encodeInlineArg(device.id || '')}'))">Eliminar</button>
+                    <div class="travel-actions" style="justify-content: flex-end;">
+                        <button class="btn-action btn-action--icon btn-action--view" onclick="syncDeviceTime(decodeInlineArg('${encodeInlineArg(device.id || '')}'))" title="Sincronizar Hora del Dispositivo"><svg style="width:16px;height:16px;"><use href="#icon-calendar"></use></svg></button>
+                        <button class="btn-action btn-action--icon btn-action--view" onclick="syncDeviceEmployees(decodeInlineArg('${encodeInlineArg(device.id || '')}'))" title="Sincronizar Empleados"><svg style="width:16px;height:16px;"><use href="#icon-refresh"></use></svg></button>
+                        ${device.isDefault ? '' : `<button class="btn-action btn-action--icon btn-action--primary" onclick="setManagedDeviceDefault(decodeInlineArg('${encodeInlineArg(device.id || '')}'))" title="Establecer como predeterminado"><svg style="width:16px;height:16px;"><use href="#icon-check"></use></svg></button>`}
+                        <button class="btn-action btn-action--icon btn-action--primary" onclick="editManagedDevice(decodeInlineArg('${encodeInlineArg(device.id || '')}'))" title="Editar"><svg style="width:16px;height:16px;"><use href="#icon-edit"></use></svg></button>
+                        <button class="btn-action btn-action--icon btn-action--danger" onclick="deleteManagedDevice(decodeInlineArg('${encodeInlineArg(device.id || '')}'))" title="Eliminar"><svg style="width:16px;height:16px;"><use href="#icon-trash"></use></svg></button>
                     </div>
-                </div>
             </td>
         </tr>
     `).join('');
+}
+
+window.syncDeviceEmployees = async (id) => {
+    const isDefault = id === 'default';
+    const msg = isDefault ? '¿Sincronizar todos los empleados activos con el dispositivo predeterminado?' : '¿Sincronizar empleados con este dispositivo?';
+    if (!confirm(msg)) return;
+
+    showToast('Sincronizando empleados, por favor espere...');
+    
+    try {
+        const resp = await fetch(`/api/devices/configured/${id}/sync`, {
+            method: 'POST',
+            headers: getAuthHeaders()
+        });
+
+        const result = await resp.json();
+
+        if (resp.ok) {
+            showToast(result.message || 'Sincronización exitosa');
+        } else {
+            showToast(result.error || 'Fallo en la sincronización', 'error');
+        }
+    } catch (err) {
+        showToast('Error de conexión', 'error');
+    }
+}
+
+window.syncDeviceTime = async (id) => {
+    if (!confirm('¿Sincronizar la hora del dispositivo con la del servidor? Esto puede resolver errores de "Permiso Expirado".')) return;
+
+    showToast('Sincronizando hora...');
+    try {
+        const resp = await fetch(`/api/devices/configured/${id}/sync-time`, {
+            method: 'POST',
+            headers: getAuthHeaders()
+        });
+        const result = await resp.json();
+        if (resp.ok) {
+            showToast(result.message || 'Hora sincronizada');
+        } else {
+            showToast(result.error || 'Error al sincronizar hora', 'error');
+        }
+    } catch (err) {
+        showToast('Error de conexión', 'error');
+    }
 }
 
 function openDeviceModal(device = null) {
@@ -1248,41 +1602,328 @@ window.setManagedDeviceDefault = async (id) => {
     }
 };
 
-// Empleados
-async function loadEmployees() {
-    try {
-        const resp = await fetch('/api/employees', {
-            headers: getAuthHeaders()
-        });
-        const emps = await resp.json();
-        const list = document.getElementById('employees-list');
-        if (!list) return;
+// ==================== DEVICE ERROR MANAGER (HEALTH & LOGS) ====================
 
-        if (!emps || emps.length === 0) {
-            list.innerHTML = '<p class="text-muted" style="grid-column: 1/-1; text-align: center; padding: 3rem;">No hay empleados registrados. Haz clic en "+ Nuevo Empleado" para comenzar.</p>';
+const DeviceErrorManager = {
+    async fetchLogs() {
+        try {
+            const defaultDevice = managedDevices.find(d => d.isDefault) || managedDevices[0];
+            if (!defaultDevice) return [];
+
+            const resp = await fetch(`/api/devices/configured/${defaultDevice.id}/logs`, {
+                headers: getAuthHeaders()
+            });
+
+            if (!resp.ok) {
+                console.error('Failed to fetch device logs:', await resp.text());
+                return [];
+            }
+
+            const data = await resp.json();
+            return Array.isArray(data) ? data : (data.logs || []);
+        } catch (err) {
+            console.error('Network error fetching device logs:', err);
+            return [];
+        }
+    },
+
+    renderLogs(logs) {
+        const tbody = document.getElementById('device-logs-list');
+        const countSpan = document.getElementById('health-error-count');
+        const lastErrSpan = document.getElementById('health-last-failure');
+
+        if (!tbody) return;
+
+        if (logs.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">El sistema está funcionando correctamente. No hay errores recientes.</td></tr>';
+            if (countSpan) countSpan.textContent = '0';
+            if (lastErrSpan) lastErrSpan.textContent = 'N/D';
             return;
         }
 
-        const canEditEmployees = canManageOrganization();
-        const canManageFaces = canManageOrganization();
-        list.innerHTML = emps.map(e => `
-            <div class="employee-card">
-                <div class="emp-avatar">👤</div>
-                <div class="emp-info">
-                    <h4>${escapeHTML(`${e.firstName || ''} ${e.lastName || ''}`.trim())}</h4>
-                    <p class="text-muted">ID: ${escapeHTML(e.employeeNo || '')}</p>
-                    <span class="badge ${e.status === 'Active' ? 'badge-success' : ''}">${escapeHTML(e.status || '')}</span>
-                </div>
-                <div class="emp-actions travel-actions">
-                    ${canManageFaces ? `<button class="btn-action btn-action--view" onclick="openFaceModal(decodeInlineArg('${encodeInlineArg(e.employeeNo || '')}'))">Rostro</button>` : ''}
-                    ${canEditEmployees ? `<button class="btn-action btn-action--primary" onclick="editEmployee(decodeInlineArg('${encodeInlineArg(e.id || '')}'))">Editar</button>` : ''}
-                </div>
-            </div>
-        `).join('');
+        const activeErrors = logs.filter(l => l.level === 'error').length;
+        if (countSpan) countSpan.textContent = activeErrors;
+
+        const lastErr = logs.find(l => l.level === 'error');
+        if (lastErrSpan && lastErr) {
+            const date = new Date(lastErr.timestamp);
+            lastErrSpan.textContent = `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+        }
+
+        tbody.innerHTML = logs.map(log => {
+            const levelClass = log.level === 'error' ? 'log-level-error' : (log.level === 'warning' ? 'log-level-warning' : 'log-level-info');
+            const date = new Date(log.timestamp);
+            const timeStr = `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+            
+            // API returns camelCase: errorMessage, deviceId, operation, level, timestamp
+            const rawMsg = log.errorMessage || log.error_message || '';
+            let msg = escapeHTML(rawMsg);
+            if (msg.includes('ISAPI error 400') || msg.includes('Invalid Operation')) {
+                msg = `ISAPI 400: Operación Inválida`;
+            }
+            const devId = (log.deviceId || log.device_id || '').substring(0, 8);
+            const opLabel = {
+                'Sync': 'Sincronizar todo',
+                'PushEmployee': 'Enviar empleado',
+                'RevokeEmployee': 'Revocar acceso',
+                'Connect': 'Conectar'
+            }[log.operation] || log.operation || '---';
+
+            return `
+                <tr>
+                    <td class="log-time">${timeStr}</td>
+                    <td>${escapeHTML(devId)}...</td>
+                    <td><span class="badge ${levelClass}">${escapeHTML((log.level || '').toUpperCase())}</span></td>
+                    <td>${escapeHTML(opLabel)}</td>
+                    <td class="log-message" title="${escapeHTML(rawMsg)}">${msg || '<span class="text-muted">OK</span>'}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+};
+
+window.initDeviceErrorManager = () => {
+    const btnRefresh = document.getElementById('btn-refresh-device-logs');
+    if (btnRefresh) {
+        btnRefresh.addEventListener('click', async () => {
+            btnRefresh.disabled = true;
+            btnRefresh.innerHTML = `<svg style="width:14px;height:14px;margin-right:4px;" class="spin"><use href="#icon-refresh"></use></svg> Refrescando...`;
+            
+            const logs = await DeviceErrorManager.fetchLogs();
+            DeviceErrorManager.renderLogs(logs);
+            
+            btnRefresh.disabled = false;
+            btnRefresh.innerHTML = `<svg style="width:14px;height:14px;margin-right:4px;"><use href="#icon-refresh"></use></svg> Refrescar Logs`;
+        });
+    }
+
+    // Load initial logs if we're on the devices tab
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    tabBtns.forEach(btn => {
+        btn.addEventListener('click', async () => {
+            if (btn.getAttribute('data-tab') === 'devices') {
+                const logs = await DeviceErrorManager.fetchLogs();
+                DeviceErrorManager.renderLogs(logs);
+            }
+        });
+    });
+};
+
+// ==================== GRANT / REVOKE DEVICE ACCESS (SINGLE EMPLOYEE) ====================
+
+// Grants access: sends employee to device terminal
+window.grantDeviceAccess = async (employeeNo, employeeName) => {
+    const defaultDevice = managedDevices.find(d => d.isDefault);
+
+    if (managedDevices.length === 0) {
+        showToast('No hay terminales configuradas. Agrega una en la sección Dispositivos.', 'error');
+        return;
+    }
+
+    if (managedDevices.length === 1 || defaultDevice) {
+        const targetId = defaultDevice ? defaultDevice.id : managedDevices[0].id;
+        const targetName = defaultDevice ? defaultDevice.name : managedDevices[0].name;
+        await _pushEmployeeToDevice(employeeNo, employeeName, targetId, targetName);
+    } else {
+        openDevicePickerModal(employeeNo, employeeName, 'grant');
+    }
+};
+
+// Revokes access: removes employee from device WITHOUT deleting from DB
+window.revokeDeviceAccess = async (employeeNo, employeeName) => {
+    const defaultDevice = managedDevices.find(d => d.isDefault);
+
+    if (managedDevices.length === 0) {
+        showToast('No hay terminales configuradas.', 'error');
+        return;
+    }
+
+    if (!confirm(`¿Revocar acceso de ${employeeName} en la terminal? El empleado NO será eliminado del sistema.`)) return;
+
+    if (managedDevices.length === 1 || defaultDevice) {
+        const targetId = defaultDevice ? defaultDevice.id : managedDevices[0].id;
+        const targetName = defaultDevice ? defaultDevice.name : managedDevices[0].name;
+        await _revokeEmployeeFromDevice(employeeNo, employeeName, targetId, targetName);
+    } else {
+        openDevicePickerModal(employeeNo, employeeName, 'revoke');
+    }
+};
+
+async function _pushEmployeeToDevice(employeeNo, employeeName, deviceId, deviceName) {
+    showToast(`Enviando ${employeeName} a ${deviceName}...`);
+    try {
+        const resp = await fetch(`/api/devices/configured/${deviceId}/sync-one/${encodeURIComponent(employeeNo)}`, {
+            method: 'POST',
+            headers: getAuthHeaders()
+        });
+        const result = await resp.json();
+        if (resp.ok) {
+            showToast(result.message || `✅ ${employeeName} registrado en ${deviceName}`);
+            loadEmployees();
+        } else {
+            showToast(result.error || 'Error al registrar en el dispositivo', 'error');
+        }
+    } catch (err) {
+        showToast('Error de conexión', 'error');
+    }
+}
+
+async function _revokeEmployeeFromDevice(employeeNo, employeeName, deviceId, deviceName) {
+    showToast(`Revocando acceso de ${employeeName} en ${deviceName}...`);
+    try {
+        const resp = await fetch(`/api/devices/configured/${deviceId}/sync-one/${encodeURIComponent(employeeNo)}`, {
+            method: 'DELETE',
+            headers: getAuthHeaders()
+        });
+        const result = await resp.json();
+        if (resp.ok) {
+            showToast(result.message || `✅ Acceso de ${employeeName} revocado en ${deviceName}`);
+            loadEmployees();
+        } else {
+            showToast(result.error || 'Error al revocar acceso en el dispositivo', 'error');
+        }
+    } catch (err) {
+        showToast('Error de conexión', 'error');
+    }
+}
+
+// action: 'grant' | 'revoke'
+function openDevicePickerModal(employeeNo, employeeName, action = 'grant') {
+    const modal = document.getElementById('device-picker-modal');
+    if (!modal) return;
+
+    document.getElementById('device-picker-emp-name').textContent = employeeName;
+    document.getElementById('device-picker-emp-no').value = employeeNo;
+    modal.dataset.action = action;
+
+    const title = modal.querySelector('.modal-title') || modal.querySelector('h3');
+    if (title) title.textContent = action === 'revoke' ? 'Revocar Acceso - Seleccionar Terminal' : 'Otorgar Acceso - Seleccionar Terminal';
+
+    const list = document.getElementById('device-picker-list');
+    list.innerHTML = managedDevices.map(d => `
+        <button class="device-picker-item ${d.isDefault ? 'device-picker-item--default' : ''}"
+            onclick="pickDeviceForEmployee(decodeInlineArg('${encodeInlineArg(d.id)}'), decodeInlineArg('${encodeInlineArg(d.name)}'))">
+            <span class="device-picker-icon">🖥️</span>
+            <span class="device-picker-info">
+                <strong>${escapeHTML(d.name)}</strong>
+                <small>${escapeHTML(d.ip)}:${d.port || 80} ${d.isDefault ? '<em>(predeterminado)</em>' : ''}</small>
+            </span>
+        </button>
+    `).join('');
+
+    modal.classList.add('active');
+}
+
+window.pickDeviceForEmployee = async (deviceId, deviceName) => {
+    const modal = document.getElementById('device-picker-modal');
+    const employeeNo = document.getElementById('device-picker-emp-no').value;
+    const employeeName = document.getElementById('device-picker-emp-name').textContent;
+    const action = modal.dataset.action || 'grant';
+    modal.classList.remove('active');
+    if (action === 'revoke') {
+        await _revokeEmployeeFromDevice(employeeNo, employeeName, deviceId, deviceName);
+    } else {
+        await _pushEmployeeToDevice(employeeNo, employeeName, deviceId, deviceName);
+    }
+};
+
+window.allEmployeesData = [];
+window.deptMapCache = {};
+
+async function loadEmployees() {
+    try {
+        const [empResp, deptResp] = await Promise.all([
+            fetch('/api/employees', { headers: getAuthHeaders() }),
+            fetch('/api/departments', { headers: getAuthHeaders() })
+        ]);
+
+        const emps = await empResp.json();
+        const depts = await deptResp.json();
+
+        // Create department map
+        window.deptMapCache = {};
+        if (depts && Array.isArray(depts)) {
+            depts.forEach(d => { window.deptMapCache[d.id] = d.name; });
+        }
+
+        window.allEmployeesData = emps || [];
+        renderEmployeesTable(window.allEmployeesData);
     } catch (err) {
         console.error('Load employees failed', err);
     }
 }
+
+function renderEmployeesTable(employees) {
+    const list = document.getElementById('employees-list');
+    if (!list) return;
+
+    if (!employees || employees.length === 0) {
+        list.innerHTML = '<tr><td colspan="5" class="text-muted" style="text-align: center; padding: 3rem;">No hay empleados encontrados.</td></tr>';
+        return;
+    }
+
+    const canEditEmployees = canManageOrganization();
+    const canManageFaces = canManageOrganization();
+    const canGrantAccess = canManageDevices();
+    
+    list.innerHTML = employees.map(e => {
+        const deptName = window.deptMapCache[e.departmentId] || '---';
+        const badgeClass = e.status === 'Active' ? 'badge-success' : 'badge-secondary';
+        const fullName = `${e.firstName || ''} ${e.lastName || ''}`.trim();
+        
+        return `
+        <tr>
+            <td><strong>${escapeHTML(e.employeeNo || '')}</strong></td>
+            <td>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <div style="width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;font-size:14px;">👤</div>
+                    <span style="font-weight:500;">${escapeHTML(fullName)}</span>
+                </div>
+            </td>
+            <td>${escapeHTML(deptName)}</td>
+            <td><span class="badge ${badgeClass}">${escapeHTML(e.status || '')}</span></td>
+            <td>
+                <div class="travel-actions">
+                    ${canGrantAccess ? `
+                        <button class="btn-action btn-action--icon btn-action--view" title="Registrar en terminal" onclick="grantDeviceAccess(decodeInlineArg('${encodeInlineArg(e.employeeNo || '')}'), decodeInlineArg('${encodeInlineArg(fullName)}'))">
+                            <svg><use href="#icon-key"></use></svg>
+                        </button>
+                        <button class="btn-action btn-action--icon btn-action--danger" title="Revocar acceso en terminal" onclick="revokeDeviceAccess(decodeInlineArg('${encodeInlineArg(e.employeeNo || '')}'), decodeInlineArg('${encodeInlineArg(fullName)}'))">
+                            <svg><use href="#icon-x"></use></svg>
+                        </button>` : ''}
+                    ${canManageFaces ? `
+                        <button class="btn-action btn-action--icon btn-action--view" title="Gestionar registro facial" onclick="openFaceModal(decodeInlineArg('${encodeInlineArg(e.employeeNo || '')}'))">
+                            <svg><use href="#icon-camera"></use></svg>
+                        </button>` : ''}
+                    ${canEditEmployees ? `
+                        <button class="btn-action btn-action--icon btn-action--primary" title="Editar empleado" onclick="editEmployee(decodeInlineArg('${encodeInlineArg(e.id || '')}'))">
+                            <svg><use href="#icon-edit"></use></svg>
+                        </button>` : ''}
+                </div>
+            </td>
+        </tr>
+    `}).join('');
+}
+
+// Client-side search listener
+document.addEventListener('DOMContentLoaded', () => {
+    const searchInput = document.getElementById('employee-search');
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            const term = e.target.value.toLowerCase().trim();
+            if (!term) {
+                renderEmployeesTable(window.allEmployeesData);
+                return;
+            }
+            
+            const filtered = window.allEmployeesData.filter(emp => {
+                const searchStr = `${emp.firstName || ''} ${emp.lastName || ''} ${emp.employeeNo || ''}`.toLowerCase();
+                return searchStr.includes(term);
+            });
+            renderEmployeesTable(filtered);
+        });
+    }
+});
 
 async function loadEmployeeDepartments() {
     try {
@@ -1434,8 +2075,8 @@ async function loadUsers() {
                 <td><span class="badge ${u.role === 'admin' ? 'badge-danger' : u.role === 'manager' ? 'badge-warning' : 'badge-secondary'}">${escapeHTML(u.role || '')}</span></td>
                 <td>
                     <div class="travel-actions">
-                        <button class="btn-action btn-action--primary" onclick="editUser(decodeInlineArg('${encodeInlineArg(u.id || '')}'), decodeInlineArg('${encodeInlineArg(u.username || '')}'), decodeInlineArg('${encodeInlineArg(u.fullName || '')}'), decodeInlineArg('${encodeInlineArg(u.email || '')}'), decodeInlineArg('${encodeInlineArg(u.role || '')}'))">Editar</button>
-                        ${u.username !== 'admin' ? `<button class="btn-action btn-action--danger" onclick="deleteUser(decodeInlineArg('${encodeInlineArg(u.id || '')}'))">Eliminar</button>` : ''}
+                        <button class="btn-action btn-action--icon btn-action--primary" onclick="editUser(decodeInlineArg('${encodeInlineArg(u.id || '')}'), decodeInlineArg('${encodeInlineArg(u.username || '')}'), decodeInlineArg('${encodeInlineArg(u.fullName || '')}'), decodeInlineArg('${encodeInlineArg(u.email || '')}'), decodeInlineArg('${encodeInlineArg(u.role || '')}'))" title="Editar"><svg style="width:16px;height:16px;"><use href="#icon-edit"></use></svg></button>
+                        ${u.username !== 'admin' ? `<button class="btn-action btn-action--icon btn-action--danger" onclick="deleteUser(decodeInlineArg('${encodeInlineArg(u.id || '')}'))" title="Eliminar"><svg style="width:16px;height:16px;"><use href="#icon-trash"></use></svg></button>` : ''}
                     </div>
                 </td>
             </tr>
@@ -1544,8 +2185,15 @@ function initDepartments() {
             document.getElementById('dept-modal-title').innerText = 'Nuevo Departamento';
             document.getElementById('dept-form').reset();
             document.getElementById('dept-id').value = '';
-            await loadEmployeesForDeptSelect();
+            
+            // Show modal immediately
             modal.classList.add('active');
+            
+            try {
+                await loadEmployeesForDeptSelect();
+            } catch(e) {
+                console.error('Error loading employees for department select', e);
+            }
         });
     }
 
@@ -1620,8 +2268,8 @@ async function loadDepartments() {
                 <td>${empCount[d.id] || 0} empleados</td>
                 <td class="travel-actions-cell">
                     <div class="travel-actions">
-                        ${canEditDepartments ? `<button class="btn-action btn-action--primary" onclick="editDept(decodeInlineArg('${encodeInlineArg(d.id || '')}'), decodeInlineArg('${encodeInlineArg(d.name || '')}'), decodeInlineArg('${encodeInlineArg(d.description || '')}'), decodeInlineArg('${encodeInlineArg(d.managerId || '')}'))">Editar</button>` : '<span class="text-muted">Solo lectura</span>'}
-                        ${canEditDepartments ? `<button class="btn-action btn-action--danger" onclick="deleteDept(decodeInlineArg('${encodeInlineArg(d.id || '')}'))">Eliminar</button>` : ''}
+                        ${canEditDepartments ? `<button class="btn-action btn-action--icon btn-action--primary" onclick="editDept(decodeInlineArg('${encodeInlineArg(d.id || '')}'), decodeInlineArg('${encodeInlineArg(d.name || '')}'), decodeInlineArg('${encodeInlineArg(d.description || '')}'), decodeInlineArg('${encodeInlineArg(d.managerId || '')}'))" title="Editar"><svg style="width:16px;height:16px;"><use href="#icon-edit"></use></svg></button>` : '<span class="text-muted">Solo lectura</span>'}
+                        ${canEditDepartments ? `<button class="btn-action btn-action--icon btn-action--danger" onclick="deleteDept(decodeInlineArg('${encodeInlineArg(d.id || '')}'))" title="Eliminar"><svg style="width:16px;height:16px;"><use href="#icon-trash"></use></svg></button>` : ''}
                     </div>
                 </td>
             </tr>
@@ -1638,7 +2286,7 @@ async function loadEmployeesForDeptSelect() {
         const select = document.getElementById('dept-manager');
         if (!select) return;
         select.innerHTML = '<option value="">Ninguno / Seleccionar después</option>' + 
-            (emps || []).map(e => `<option value="${e.id}">${e.firstName} ${e.lastName}</option>`).join('');
+            (emps || []).map(e => `<option value="${escapeHTML(e.id || '')}">${escapeHTML(`${e.firstName || ''} ${e.lastName || ''}`.trim())}</option>`).join('');
     } catch (err) {
         console.error('Load employees failed', err);
     }
@@ -1684,12 +2332,12 @@ function initPositions() {
     const form = document.getElementById('pos-form');
 
     if (btnAdd) {
-        btnAdd.addEventListener('click', () => {
+        btnAdd.addEventListener('click', async () => {
             document.getElementById('pos-modal-title').innerText = 'Nuevo Cargo';
             document.getElementById('pos-form').reset();
             document.getElementById('pos-id').value = '';
             document.getElementById('pos-level').value = '1';
-            loadDepartmentsForSelect();
+            await loadDepartmentsForSelect();
             modal.classList.add('active');
         });
     }
@@ -1786,8 +2434,8 @@ async function loadPositions() {
                 <td>${empCount[p.id] || 0} empleados</td>
                 <td class="travel-actions-cell">
                     <div class="travel-actions">
-                        ${canEditPositions ? `<button class="btn-action btn-action--primary" onclick="editPos(decodeInlineArg('${encodeInlineArg(p.id || '')}'), decodeInlineArg('${encodeInlineArg(p.name || '')}'), decodeInlineArg('${encodeInlineArg(p.departmentId || '')}'), decodeInlineArg('${encodeInlineArg(p.level || 1)}'))">Editar</button>` : '<span class="text-muted">Solo lectura</span>'}
-                        ${canEditPositions ? `<button class="btn-action btn-action--danger" onclick="deletePos(decodeInlineArg('${encodeInlineArg(p.id || '')}'))">Eliminar</button>` : ''}
+                        ${canEditPositions ? `<button class="btn-action btn-action--icon btn-action--primary" onclick="editPos(decodeInlineArg('${encodeInlineArg(p.id || '')}'), decodeInlineArg('${encodeInlineArg(p.name || '')}'), decodeInlineArg('${encodeInlineArg(p.departmentId || '')}'), decodeInlineArg('${encodeInlineArg(p.level || 1)}'))" title="Editar"><svg style="width:16px;height:16px;"><use href="#icon-edit"></use></svg></button>` : '<span class="text-muted">Solo lectura</span>'}
+                        ${canEditPositions ? `<button class="btn-action btn-action--icon btn-action--danger" onclick="deletePos(decodeInlineArg('${encodeInlineArg(p.id || '')}'))" title="Eliminar"><svg style="width:16px;height:16px;"><use href="#icon-trash"></use></svg></button>` : ''}
                     </div>
                 </td>
             </tr>
@@ -1797,16 +2445,15 @@ async function loadPositions() {
     }
 }
 
-window.editPos = (id, name, departmentId, level) => {
+window.editPos = async (id, name, departmentId, level) => {
     document.getElementById('pos-modal-title').innerText = 'Editar Cargo';
     document.getElementById('pos-id').value = id;
     document.getElementById('pos-name').value = name;
     document.getElementById('pos-level').value = level;
-    loadDepartmentsForSelect().then(() => {
-        if (departmentId) {
-            document.getElementById('pos-dept-select').value = departmentId;
-        }
-    });
+    await loadDepartmentsForSelect();
+    if (departmentId) {
+        document.getElementById('pos-dept-select').value = departmentId;
+    }
     document.getElementById('pos-modal').classList.add('active');
 };
 
@@ -1833,73 +2480,7 @@ window.deletePos = async (id) => {
 
 // ==================== ATTENDANCE ====================
 
-async function loadAttendance() {
-    const dateInput = document.getElementById('attendance-date');
-    if (!dateInput) return;
 
-    const selectedDate = dateInput.value || new Date().toISOString().split('T')[0];
-    dateInput.value = selectedDate;
-
-    try {
-        const resp = await fetch(`/api/attendance/daily?date=${selectedDate}`, {
-            headers: getAuthHeaders()
-        });
-        const results = await resp.json();
-
-        const tbody = document.querySelector('#attendance-table tbody');
-        if (!tbody) return;
-
-        if (!results || results.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="text-muted" style="text-align: center; padding: 2rem;">No hay registros de asistencia para esta fecha</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = results.map(r => {
-            const statusClass = r.isIncomplete ? 'badge-warning' : r.isAbsent ? 'badge-danger' : r.isLate ? 'badge-warning' : 'badge-success';
-            const statusText = r.isIncomplete ? 'Incompleto' : r.isAbsent ? 'Ausente' : r.isLate ? 'Tarde' : 'Presente';
-            const checkIn = r.checkIn ? r.checkIn.split('T')[1].substring(0, 5) : '---';
-            const checkOut = r.checkOut ? r.checkOut.split('T')[1].substring(0, 5) : '---';
-            const totalHours = typeof r.totalHours === 'number' ? r.totalHours.toFixed(2) : '0.00';
-            const overtime = typeof r.overtime === 'number' ? r.overtime.toFixed(2) : '0.00';
-
-            const notifyData = encodeInlineArg(JSON.stringify({
-                employeeNo: r.employeeNo,
-                employeeName: r.employeeName || r.employeeNo,
-                date: selectedDate,
-                status: statusText,
-                checkIn: checkIn,
-                checkOut: checkOut,
-                department: r.department || ''
-            }));
-
-            return `
-            <tr>
-                <td>${escapeHTML(selectedDate)}</td>
-                <td>${escapeHTML(r.employeeName || r.employeeNo)}</td>
-                <td>${escapeHTML(checkIn)}</td>
-                <td>${escapeHTML(checkOut)}</td>
-                <td>${escapeHTML(totalHours)}</td>
-                <td>${escapeHTML(overtime)}</td>
-                <td><span class="badge ${statusClass}">${escapeHTML(statusText)}</span></td>
-                <td>
-                    <button class="btn btn-sm btn-secondary" onclick='openNotifyModal(JSON.parse(decodeInlineArg("${notifyData}")))' title="Reportar">
-                        <svg viewBox="0 0 24 24" style="width:14px;height:14px"><use href="#icon-alert"></use></svg>
-                    </button>
-                </td>
-            </tr>
-            `;
-        }).join('');
-    } catch (err) {
-        console.error('Load attendance failed', err);
-    }
-}
-
-// Init attendance date filter
-const attendanceDate = document.getElementById('attendance-date');
-if (attendanceDate) {
-    attendanceDate.value = new Date().toISOString().split('T')[0];
-    attendanceDate.addEventListener('change', loadAttendance);
-}
 
 // ==================== VIATICOS ====================
 
@@ -2145,11 +2726,11 @@ async function loadTravelAllowances() {
                 <td>${badge}</td>
                 <td class="travel-actions-cell">
                     <div class="travel-actions">
-                        <button class="btn-action btn-action--icon btn-action--view" onclick="downloadTravelAllowancePDF(decodeInlineArg('${encodeInlineArg(ta.id || '')}'))" title="Descargar PDF">📄</button>
-                        ${canEdit ? `<button class="btn-action btn-action--primary" onclick="openTravelModal(decodeInlineArg('${encodeInlineArg(ta.id || '')}'))">Editar</button>` : ''}
-                        ${canDecide ? `<button class="btn-action btn-action--icon btn-action--success" onclick="openTravelDecision(decodeInlineArg('${encodeInlineArg(ta.id || '')}'),'approve',decodeInlineArg('${encodeInlineArg(summary)}'))" title="Aprobar">✓</button>` : ''}
-                        ${canDecide ? `<button class="btn-action btn-action--icon btn-action--danger" onclick="openTravelDecision(decodeInlineArg('${encodeInlineArg(ta.id || '')}'),'reject',decodeInlineArg('${encodeInlineArg(summary)}'))" title="Rechazar">✗</button>` : ''}
-                        ${canDelete ? `<button class="btn-action btn-action--danger" onclick="deleteTravelAllowance(decodeInlineArg('${encodeInlineArg(ta.id || '')}'))">Eliminar</button>` : ''}
+                        <button class="btn-action btn-action--icon btn-action--view" onclick="downloadTravelAllowancePDF(decodeInlineArg('${encodeInlineArg(ta.id || '')}'))" title="Descargar PDF"><svg style="width:16px;height:16px;"><use href="#icon-file-text"></use></svg></button>
+                        ${canEdit ? `<button class="btn-action btn-action--icon btn-action--primary" onclick="openTravelModal(decodeInlineArg('${encodeInlineArg(ta.id || '')}'))" title="Editar"><svg style="width:16px;height:16px;"><use href="#icon-edit"></use></svg></button>` : ''}
+                        ${canDecide ? `<button class="btn-action btn-action--icon btn-action--success" onclick="openTravelDecision(decodeInlineArg('${encodeInlineArg(ta.id || '')}'),'approve',decodeInlineArg('${encodeInlineArg(summary)}'))" title="Aprobar"><svg style="width:18px;height:18px;"><use href="#icon-check"></use></svg></button>` : ''}
+                        ${canDecide ? `<button class="btn-action btn-action--icon btn-action--danger" onclick="openTravelDecision(decodeInlineArg('${encodeInlineArg(ta.id || '')}'),'reject',decodeInlineArg('${encodeInlineArg(summary)}'))" title="Rechazar"><svg style="width:18px;height:18px;"><use href="#icon-x"></use></svg></button>` : ''}
+                        ${canDelete ? `<button class="btn-action btn-action--icon btn-action--danger" onclick="deleteTravelAllowance(decodeInlineArg('${encodeInlineArg(ta.id || '')}'))" title="Eliminar"><svg style="width:16px;height:16px;"><use href="#icon-trash"></use></svg></button>` : ''}
                     </div>
                 </td>
             </tr>`;
@@ -2161,18 +2742,27 @@ async function loadTravelAllowances() {
 }
 
 async function openTravelModal(id = null) {
-    // Load selects
-    await Promise.all([loadTravelEmployeeSelect(), loadTravelRateSelect()]);
-
     const modal = document.getElementById('travel-modal');
     const form = document.getElementById('travel-form');
+    if (!modal || !form) return;
+
     form.reset();
     document.getElementById('travel-id').value = '';
     document.getElementById('travel-calc-preview').style.display = 'none';
     document.getElementById('travel-request-type').value = 'single';
     document.getElementById('travel-request-type').disabled = false;
     document.getElementById('travel-group-name').value = '';
+    
+    // Show modal immediately
+    modal.classList.add('active');
     setTravelRequestTypeUI();
+
+    // Background loading
+    try {
+        await Promise.all([loadTravelEmployeeSelect(), loadTravelRateSelect()]);
+    } catch(e) {
+        console.error('Error loading travel requirements', e);
+    }
 
     if (id) {
         try {
@@ -2199,13 +2789,11 @@ async function openTravelModal(id = null) {
             document.getElementById('travel-modal-title').innerText = 'Editar Solicitud de Viático';
             updateTravelCalcPreview();
         } catch (err) {
-            showToast('Error de conexión', 'error'); return;
+            showToast('Error de conexión', 'error');
         }
     } else {
         document.getElementById('travel-modal-title').innerText = 'Nueva Solicitud de Viático';
     }
-
-    modal.classList.add('active');
 }
 
 async function loadTravelEmployeeSelect() {
@@ -2365,8 +2953,8 @@ async function loadRates() {
                 <td>${activeLabel}</td>
                 <td class="travel-actions-cell">
                     <div class="travel-actions">
-                        <button class="btn-action btn-action--primary" onclick="editRate(decodeInlineArg('${encodeInlineArg(r.id || '')}'))">Editar</button>
-                        <button class="btn-action btn-action--danger" onclick="deleteRate(decodeInlineArg('${encodeInlineArg(r.id || '')}'))">Eliminar</button>
+                        <button class="btn-action btn-action--primary" onclick="editRate(decodeInlineArg('${encodeInlineArg(r.id || '')}'))" title="Editar"><svg style="width:16px;height:16px;"><use href="#icon-edit"></use></svg></button>
+                        <button class="btn-action btn-action--danger" onclick="deleteRate(decodeInlineArg('${encodeInlineArg(r.id || '')}'))" title="Eliminar"><svg style="width:16px;height:16px;"><use href="#icon-trash"></use></svg></button>
                     </div>
                 </td>
             </tr>`;
@@ -2449,27 +3037,36 @@ function formatTravelStatus(s) {
 
 function initAttendanceReport() {
     // ── Elements ─────────────────────────────────────────────────────────────
-    const applyBtn   = document.getElementById('ar-apply');
-    const excelBtn   = document.getElementById('ar-export-excel');
-    const pdfBtn     = document.getElementById('ar-export-pdf');
-    const fromInput  = document.getElementById('ar-from');
-    const toInput    = document.getElementById('ar-to');
-    const deptSel    = document.getElementById('ar-dept');
-    const statusSel  = document.getElementById('ar-status');
-    const searchInp  = document.getElementById('ar-search');
-    const loading    = document.getElementById('ar-loading');
-    const emptyEl    = document.getElementById('ar-empty');
-    const table      = document.getElementById('ar-table');
-    const tbody      = document.getElementById('ar-tbody');
-    const footer     = document.getElementById('ar-footer');
-    const rowCount   = document.getElementById('ar-row-count');
+    const applyBtn      = document.getElementById('ar-apply');
+    const excelBtn      = document.getElementById('ar-export-excel');
+    const pdfBtn        = document.getElementById('ar-export-pdf');
+    const syncBtn       = document.getElementById('ar-sync-btn');
+    const fromInput     = document.getElementById('ar-from');
+    const toInput       = document.getElementById('ar-to');
+    const deptSel       = document.getElementById('ar-dept');
+    const statusSel     = document.getElementById('ar-status');
+    const searchInp     = document.getElementById('ar-search');
+    const loading       = document.getElementById('ar-loading');
+    const emptyEl       = document.getElementById('ar-empty');
+    const table         = document.getElementById('ar-table');
+    const tbody         = document.getElementById('ar-tbody');
+    const footer        = document.getElementById('ar-footer');
+    const rowCount      = document.getElementById('ar-row-count');
+    const paginationEl  = document.getElementById('ar-pagination');
+    const refreshSel    = document.getElementById('ar-refresh-interval');
+    const countdownEl   = document.getElementById('ar-refresh-countdown');
 
     if (!applyBtn) return;
 
     // ── State ─────────────────────────────────────────────────────────────────
-    let allRows     = [];   // All rows from last API call
-    let sortCol     = 'date';
-    let sortAsc     = true;
+    let allRows        = [];   // All rows from last API call
+    let currentPage    = 1;
+    const pageSize     = 20;
+    let sortCol        = 'date';
+    let sortAsc        = true;
+    let refreshTimer   = null;
+    let countdownTimer = null;
+    let nextRefreshIn  = 0;
 
     // ── Defaults ──────────────────────────────────────────────────────────────
     const now = new Date();
@@ -2480,6 +3077,7 @@ function initAttendanceReport() {
     window.loadAttendance = () => {
         loadDepts();
         fetchData();
+        setupAutoRefresh();
     };
 
     // ── Department loader ─────────────────────────────────────────────────────
@@ -2489,23 +3087,25 @@ function initAttendanceReport() {
             const resp = await fetch('/api/departments', { headers: getAuthHeaders() });
             if (!resp.ok) return;
             const depts = await resp.json();
-            depts.forEach(d => {
-                const opt = document.createElement('option');
-                opt.value = d.id;
-                opt.textContent = d.name;
-                deptSel.appendChild(opt);
-            });
+            deptSel.innerHTML = '<option value="">Todos</option>' + 
+                depts.map(d => `<option value="${escapeHTML(d.id || '')}">${escapeHTML(d.name || '')}</option>`).join('');
         } catch (e) { /* silent */ }
     }
 
     // ── Data fetch ────────────────────────────────────────────────────────────
-    async function fetchData() {
+    async function fetchData(triggerSync = false) {
         const from = fromInput.value;
         const to   = toInput.value;
         if (!from || !to) { showToast('Selecciona el rango de fechas', 'error'); return; }
         if (from > to)    { showToast('Fecha inicio mayor a fecha fin', 'error'); return; }
 
-        // Show loading
+        if (triggerSync) {
+            // Trigger a quick read from devices before fetching report data
+            try {
+                await fetch(`/api/devices/read-events?from=${from}&to=${to}`, { method: 'POST', headers: getAuthHeaders() });
+            } catch (e) { console.warn('Device sync failed during refresh', e); }
+        }
+
         loading.style.display = 'flex';
         emptyEl.style.display = 'none';
         table.style.display   = 'none';
@@ -2522,17 +3122,64 @@ function initAttendanceReport() {
 
             allRows = data.rows || [];
             updateKPIs(data.summary || {});
+            
+            currentPage = 1; // Reset to page 1 on new fetch
+            loading.style.display = 'none';
             renderTable();
         } catch (err) {
+            console.error('Fetch error:', err);
             showToast('Error al cargar datos: ' + err.message, 'error');
             loading.style.display = 'none';
         }
     }
 
-    applyBtn.addEventListener('click', fetchData);
-    fromInput.addEventListener('change', fetchData);
-    toInput.addEventListener('change',   fetchData);
-    deptSel.addEventListener('change',   fetchData);
+    // ── Auto Refresh Logic ──────────────────────────────────────────────────
+    function setupAutoRefresh() {
+        if (refreshTimer) clearInterval(refreshTimer);
+        if (countdownTimer) clearInterval(countdownTimer);
+        
+        const interval = parseInt(refreshSel.value);
+        if (interval <= 0) {
+            countdownEl.textContent = '';
+            return;
+        }
+
+        nextRefreshIn = interval;
+        updateCountdownDisplay();
+
+        countdownTimer = setInterval(() => {
+            nextRefreshIn--;
+            if (nextRefreshIn <= 0) {
+                nextRefreshIn = interval;
+                fetchData(true); // Trigger sync on auto-refresh
+            }
+            updateCountdownDisplay();
+        }, 1000);
+    }
+
+    function updateCountdownDisplay() {
+        const m = Math.floor(nextRefreshIn / 60);
+        const s = nextRefreshIn % 60;
+        countdownEl.textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
+    }
+
+    refreshSel.addEventListener('change', setupAutoRefresh);
+
+    applyBtn.addEventListener('click', () => fetchData());
+    
+    if (syncBtn) {
+        syncBtn.addEventListener('click', async () => {
+            syncBtn.disabled = true;
+            syncBtn.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true" style="width:15px;height:15px" class="spin"><use href="#icon-refresh"></use></svg> Sincronizando...`;
+            showToast('Sincronizando con los dispositivos biometrícos...', 'info');
+            await fetchData(true);
+            syncBtn.disabled = false;
+            syncBtn.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true" style="width:15px;height:15px"><use href="#icon-refresh"></use></svg> Sincronizar`;
+        });
+    }
+    fromInput.addEventListener('change', () => fetchData());
+    toInput.addEventListener('change',   () => fetchData());
+    deptSel.addEventListener('change',   () => fetchData());
 
     // ── KPIs ──────────────────────────────────────────────────────────────────
     function updateKPIs(s) {
@@ -2545,7 +3192,7 @@ function initAttendanceReport() {
         set('ar-kpi-overtime', (s.totalOvertime ?? 0).toFixed(1));
     }
 
-    // ── Client-side filter + sort ─────────────────────────────────────────────
+    // ── Client-side filter + sort + pagination ────────────────────────────────
     function getFiltered() {
         const q      = (searchInp.value || '').toLowerCase();
         const status = statusSel.value;
@@ -2560,15 +3207,14 @@ function initAttendanceReport() {
         });
     }
 
-    // Live client-side search (no extra API call)
-    searchInp.addEventListener('input', renderTable);
-    statusSel.addEventListener('change', renderTable);
+    searchInp.addEventListener('input', () => { currentPage = 1; renderTable(); });
+    statusSel.addEventListener('change', () => { currentPage = 1; renderTable(); });
 
     function renderTable() {
         loading.style.display = 'none';
-        const rows = getFiltered();
+        const filtered = getFiltered();
 
-        if (rows.length === 0) {
+        if (filtered.length === 0) {
             emptyEl.style.display = 'flex';
             table.style.display   = 'none';
             footer.style.display  = 'none';
@@ -2577,18 +3223,26 @@ function initAttendanceReport() {
 
         // Sort
         const mult = sortAsc ? 1 : -1;
-        rows.sort((a, b) => {
+        filtered.sort((a, b) => {
             const va = a[sortCol] ?? '';
             const vb = b[sortCol] ?? '';
             if (typeof va === 'number') return (va - vb) * mult;
-            return va.localeCompare(vb) * mult;
+            return String(va).localeCompare(String(vb)) * mult;
         });
+
+        // Paginate
+        const totalPages = Math.ceil(filtered.length / pageSize);
+        if (currentPage > totalPages) currentPage = totalPages || 1;
+        
+        const start = (currentPage - 1) * pageSize;
+        const end = start + pageSize;
+        const pageRows = filtered.slice(start, end);
 
         emptyEl.style.display = 'none';
         table.style.display   = 'table';
         footer.style.display  = 'flex';
 
-        tbody.innerHTML = rows.map(row => {
+        tbody.innerHTML = pageRows.map(row => {
             const statusClass = {
                 'Presente':   'ar-badge-present',
                 'Tarde':      'ar-badge-late',
@@ -2620,9 +3274,36 @@ function initAttendanceReport() {
             </tr>`;
         }).join('');
 
-        rowCount.textContent = `${rows.length} registro${rows.length !== 1 ? 's' : ''}`;
+        rowCount.textContent = `Mostrando ${start + 1}-${Math.min(end, filtered.length)} de ${filtered.length} registro${filtered.length !== 1 ? 's' : ''}`;
+        renderPagination(totalPages);
         updateSortIcons();
     }
+
+    function renderPagination(totalPages) {
+        if (totalPages <= 1) {
+            paginationEl.innerHTML = '';
+            return;
+        }
+
+        let html = `<button class="btn btn-secondary btn-sm" ${currentPage === 1 ? 'disabled' : ''} onclick="arChangePage(${currentPage - 1})">Anterior</button>`;
+        
+        const startPage = Math.max(1, currentPage - 2);
+        const endPage = Math.min(totalPages, startPage + 4);
+        
+        for (let i = startPage; i <= endPage; i++) {
+            html += `<button class="btn btn-sm ${i === currentPage ? 'btn-primary' : 'btn-secondary'}" onclick="arChangePage(${i})">${i}</button>`;
+        }
+
+        html += `<button class="btn btn-secondary btn-sm" ${currentPage === totalPages ? 'disabled' : ''} onclick="arChangePage(${currentPage + 1})">Siguiente</button>`;
+        
+        paginationEl.innerHTML = html;
+    }
+
+    window.arChangePage = (p) => {
+        currentPage = p;
+        renderTable();
+        document.querySelector('.ar-table-wrap').scrollTop = 0;
+    };
 
     function formatDateDisplay(dateStr) {
         const [y, m, d] = dateStr.split('-');
@@ -2657,13 +3338,19 @@ function initAttendanceReport() {
         });
     }
 
-    // ── Export (respects current date+dept filters) ───────────────────────────
+    // ── Export (respects ALL current filters) ─────────────────────────────────
     function buildExportUrl(format) {
-        const from = fromInput.value;
-        const to   = toInput.value;
-        const dept = deptSel.value;
+        const from   = fromInput.value;
+        const to     = toInput.value;
+        const dept   = deptSel.value;
+        const status = statusSel.value;
+        const search = searchInp.value;
+
         let url = `/api/reports/attendance?from=${from}&to=${to}&format=${format}`;
-        if (dept) url += `&department=${encodeURIComponent(dept)}`;
+        if (dept)   url += `&department=${encodeURIComponent(dept)}`;
+        if (status) url += `&status=${encodeURIComponent(status)}`;
+        if (search) url += `&search=${encodeURIComponent(search)}`;
+        
         return url;
     }
 
@@ -2677,6 +3364,82 @@ function initAttendanceReport() {
         downloadReport(buildExportUrl('pdf'), `reporte_asistencia_${from}_${to}.pdf`);
     });
 }
+
+window.showReportPeriodModal = async () => {
+    const modal = document.getElementById('attendance-period-modal');
+    if (modal) {
+        // Preset dates if empty
+        const from = document.getElementById('period-from');
+        const to = document.getElementById('period-to');
+        if (from && !from.value) {
+            const now = new Date();
+            const first = new Date(now.getFullYear(), now.getMonth(), 1);
+            from.value = first.toISOString().split('T')[0];
+            to.value = now.toISOString().split('T')[0];
+        }
+
+        // Load departments dynamically to avoid auth state issues
+        const deptSel = document.getElementById('period-dept');
+        if (deptSel) {
+            try {
+                const resp = await fetch('/api/departments', { headers: getAuthHeaders() });
+                const depts = await resp.json();
+                deptSel.innerHTML = '<option value="">Todos</option>' + 
+                    depts.map(d => `<option value="${escapeHTML(d.id || '')}">${escapeHTML(d.name || '')}</option>`).join('');
+            } catch(e) {}
+        }
+
+        modal.classList.add('active');
+    } else {
+        const attendanceBtn = document.querySelector('.sidebar nav li[data-page="attendance"]');
+        if (attendanceBtn) attendanceBtn.click();
+    }
+};
+
+// Hook modal buttons for reporting
+document.addEventListener('DOMContentLoaded', () => {
+    const pdfBtn = document.getElementById('btn-period-pdf');
+    const excelBtn = document.getElementById('btn-period-excel');
+    const fromInp = document.getElementById('period-from');
+    const toInp = document.getElementById('period-to');
+    const deptSel = document.getElementById('period-dept');
+
+    // Load depts into modal select
+    const loadDepts = async () => {
+        if (!deptSel) return;
+        try {
+            const resp = await fetch('/api/departments', { headers: getAuthHeaders() });
+            const depts = await resp.json();
+            deptSel.innerHTML = '<option value="">Todos</option>' + 
+                depts.map(d => `<option value="${escapeHTML(d.id || '')}">${escapeHTML(d.name || '')}</option>`).join('');
+        } catch(e) {}
+    };
+    loadDepts();
+
+    const download = (format) => {
+        const from = fromInp.value;
+        const to = toInp.value;
+        const dept = deptSel.value;
+        if (!from || !to) { showToast('Selecciona el rango de fechas', 'error'); return; }
+        
+        let url = `/api/reports/attendance?from=${from}&to=${to}&format=${format}`;
+        if (dept) url += `&department=${encodeURIComponent(dept)}`;
+        
+        showToast(`Generando reporte ${format.toUpperCase()}...`);
+        window.open(url, '_blank');
+        document.getElementById('attendance-period-modal').classList.remove('active');
+    };
+
+    pdfBtn?.addEventListener('click', () => download('pdf'));
+    excelBtn?.addEventListener('click', () => download('excel'));
+    
+    document.querySelector('.close-attendance-period')?.addEventListener('click', () => {
+        document.getElementById('attendance-period-modal').classList.remove('active');
+    });
+    document.getElementById('close-attendance-period-modal')?.addEventListener('click', () => {
+        document.getElementById('attendance-period-modal').classList.remove('active');
+    });
+});
 
 // ==================== NOTIFICATIONS ====================
 
@@ -2750,7 +3513,6 @@ function initLeavesUI() {
     const form = document.getElementById('leave-form');
     if (!modal || !form) return;
 
-    // --- Modal Closing ---
     modal.querySelectorAll('.close-modal').forEach(btn => {
         btn.addEventListener('click', () => modal.classList.remove('active'));
     });
@@ -2792,20 +3554,30 @@ function initLeavesUI() {
     });
 }
 
+window.openNewLeaveModal = openNewLeaveModal;
+
 async function openNewLeaveModal() {
+    console.log("Opening new leave modal...");
     const modal = document.getElementById('leave-modal');
     const form = document.getElementById('leave-form');
-    if (!modal || !form) return;
+    if (!modal || !form) {
+        console.error("Leave modal or form not found");
+        return;
+    }
 
     document.getElementById('leave-modal-title').innerText = 'Nuevo Permiso';
     form.reset();
-    document.getElementById('leave-id').value = '';
-    document.getElementById('leave-status').value = 'Approved';
+    if (document.getElementById('leave-id')) document.getElementById('leave-id').value = '';
+    if (document.getElementById('leave-status')) document.getElementById('leave-status').value = 'Approved';
 
     // Open first so the UI responds even if the background fetch is slow.
     modal.classList.add('active');
 
-    await loadLeaveSelects();
+    try {
+        await loadLeaveSelects();
+    } catch(e) {
+        console.error('Error loading selects for new leave', e);
+    }
 }
 
 async function loadLeaveSelects() {
@@ -2814,21 +3586,24 @@ async function loadLeaveSelects() {
             fetch('/api/employees', { headers: getAuthHeaders() }),
             fetch('/api/users', { headers: getAuthHeaders() })
         ]);
-        const emps = await empResp.json();
-        const users = await userResp.json();
+        
+        const emps = empResp.ok ? await empResp.json() : [];
+        const users = userResp.ok ? await userResp.json() : [];
         
         const empSel = document.getElementById('leave-employee');
         const authSel = document.getElementById('leave-authorized-by');
         
         if (empSel) {
             empSel.innerHTML = '<option value="">Seleccionar empleado...</option>' + 
-                emps.map(e => `<option value="${escapeHTML(e.id || '')}">${escapeHTML(`${e.firstName || ''} ${e.lastName || ''}`.trim())}</option>`).join('');
+                (Array.isArray(emps) ? emps.map(e => `<option value="${escapeHTML(e.id || '')}">${escapeHTML(`${e.firstName || ''} ${e.lastName || ''}`.trim())}</option>`).join('') : '');
         }
         if (authSel) {
             authSel.innerHTML = '<option value="">Seleccionar...</option>' + 
-                users.map(u => `<option value="${escapeHTML(u.id || '')}">${escapeHTML(u.fullName || u.username || '')}</option>`).join('');
+                (Array.isArray(users) ? users.map(u => `<option value="${escapeHTML(u.id || '')}">${escapeHTML(u.fullName || u.username || '')}</option>`).join('') : '');
         }
-    } catch(e) {}
+    } catch(e) {
+        console.error('Error loading selects for leaves', e);
+    }
 }
 
 async function loadLeaves() {
@@ -2882,8 +3657,8 @@ function renderLeaves(leaves, filter = 'all') {
             </td>
             <td class="travel-actions-cell">
                 <div class="travel-actions">
-                    ${canEditLeaves ? `<button class="btn-action btn-action--primary" onclick="editLeave(decodeInlineArg('${encodeInlineArg(l.id || '')}'))">Editar</button>` : '<span class="text-muted">Solo lectura</span>'}
-                    ${canEditLeaves ? `<button class="btn-action btn-action--danger" onclick="deleteLeave(decodeInlineArg('${encodeInlineArg(l.id || '')}'))">Eliminar</button>` : ''}
+                    ${canEditLeaves ? `<button class="btn-action btn-action--primary" onclick="editLeave(decodeInlineArg('${encodeInlineArg(l.id || '')}'))" title="Editar"><svg style="width:16px;height:16px;"><use href="#icon-edit"></use></svg></button>` : '<span class="text-muted" style="font-size:0.8rem">Solo lectura</span>'}
+                    ${canEditLeaves ? `<button class="btn-action btn-action--danger" onclick="deleteLeave(decodeInlineArg('${encodeInlineArg(l.id || '')}'))" title="Eliminar"><svg style="width:16px;height:16px;"><use href="#icon-trash"></use></svg></button>` : ''}
                 </div>
             </td>
         </tr>
@@ -2891,24 +3666,39 @@ function renderLeaves(leaves, filter = 'all') {
 }
 
 window.editLeave = async (id) => {
+    const modal = document.getElementById('leave-modal');
+    if (!modal) return;
+    
+    // Show modal immediately with a loading state or title update
+    document.getElementById('leave-modal-title').innerText = 'Editar Permiso';
+    modal.classList.add('active');
+    
     try {
         const resp = await fetch(`/api/leaves/${id}`, { headers: getAuthHeaders() });
+        if (!resp.ok) {
+            showToast('No se pudo cargar el permiso', 'error');
+            modal.classList.remove('active');
+            return;
+        }
         const l = await resp.json();
         
         await loadLeaveSelects();
-        document.getElementById('leave-modal-title').innerText = 'Editar Permiso';
-        document.getElementById('leave-id').value = l.id;
-        document.getElementById('leave-employee').value = l.employeeId;
-        document.getElementById('leave-type').value = l.type;
-        document.getElementById('leave-status').value = l.status;
+        
+        document.getElementById('leave-id').value = l.id || '';
+        document.getElementById('leave-employee').value = l.employeeId || '';
+        document.getElementById('leave-type').value = l.type || 'Vacation';
+        document.getElementById('leave-status').value = l.status || 'Pending';
         document.getElementById('leave-start').value = l.startDate ? l.startDate.split('T')[0] : '';
         document.getElementById('leave-end').value = l.endDate ? l.endDate.split('T')[0] : '';
-        document.getElementById('leave-days').value = l.days;
+        document.getElementById('leave-days').value = l.days || 1;
         document.getElementById('leave-authorized-by').value = l.authorizedBy || '';
         document.getElementById('leave-reason').value = l.reason || '';
         document.getElementById('leave-notes').value = l.notes || '';
-        document.getElementById('leave-modal').classList.add('active');
-    } catch(e) {}
+    } catch(e) {
+        console.error('Error in editLeave:', e);
+        showToast('Error de conexión', 'error');
+        modal.classList.remove('active');
+    }
 };
 
 window.deleteLeave = async (id) => {

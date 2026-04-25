@@ -52,6 +52,10 @@ type Repository interface {
 	SaveEvent(ctx context.Context, event *AttendanceEvent) error
 	GetEvents(ctx context.Context, filter EventFilter) ([]*AttendanceEvent, error)
 
+	// Device Logs
+	SaveDeviceLog(ctx context.Context, log *DeviceLog) error
+	GetDeviceLogs(ctx context.Context, deviceID string, limit int) ([]*DeviceLog, error)
+
 	// Travel Allowance Rates
 	CreateTravelRate(ctx context.Context, r *employees.TravelAllowanceRate) error
 	GetTravelRate(ctx context.Context, id string) (*employees.TravelAllowanceRate, error)
@@ -81,6 +85,15 @@ type AttendanceEvent struct {
 	EmployeeNo string    `json:"employeeNo"`
 	Timestamp  time.Time `json:"timestamp"`
 	Type       string    `json:"type"` // Access, Alert, etc.
+}
+
+type DeviceLog struct {
+	ID           int64     `json:"id"`
+	DeviceID     string    `json:"deviceId"`
+	Operation    string    `json:"operation"` // 'Sync', 'Connect', 'PushEmployee'
+	ErrorMessage string    `json:"errorMessage"`
+	Level        string    `json:"level"` // 'error', 'warning', 'info'
+	Timestamp    time.Time `json:"timestamp"`
 }
 
 type EventFilter struct {

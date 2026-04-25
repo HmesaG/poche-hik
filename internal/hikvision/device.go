@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/xml"
 	"fmt"
+	"time"
 )
 
 // DeviceInfo represents the response from /ISAPI/System/deviceInfo
@@ -37,5 +38,32 @@ func (c *Client) GetDeviceInfo(ctx context.Context) (*DeviceInfo, error) {
 // Reboot reboots the device
 func (c *Client) Reboot(ctx context.Context) error {
 	_, err := c.Do(ctx, "PUT", "/ISAPI/System/reboot", nil, nil)
+	return err
+}
+
+// SyncTime synchronizes the device time with the provided time
+func (c *Client) SyncTime(ctx context.Context, t time.Time) error {
+	type TimeInfo struct {
+		XMLName     xml.Name `xml:"Time"`
+		TimeMode    string   `xml:"timeMode"`
+		LocalTime   string   `xml:"localTime"`
+		TimeZone    string   `xml:"timeZone"`
+	}
+
+	// Format: 2023-10-27T10:00:00
+	localTime := t.Format("2006-01-02T15:04:05")
+
+	info := TimeInfo{
+		TimeMode:  "manual",
+		LocalTime: localTime,
+		TimeZone:  "CST-8", // Default, but device usually ignores if mode is manual
+	}
+
+	body, err := xml.Marshal(info)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.Do(ctx, "PUT", "/ISAPI/System/time", nil, xmlHeader(body))
 	return err
 }

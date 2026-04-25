@@ -11,7 +11,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Ponches">
     <link rel="manifest" href="/manifest.webmanifest">
-    <link rel="stylesheet" href="style.css?v=20260320a">
+    <link rel="stylesheet" href="style.css?v=20260418f">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -92,6 +92,39 @@
             <path d="M15.5 7.5V6a2 2 0 0 0-2-2h-3a2 2 0 0 0-2 2v1.5" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="1.8"/>
             <path d="M12 12v3m-3-1.5h6" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.8"/>
         </symbol>
+        <symbol id="icon-edit" viewBox="0 0 24 24">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
+            <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
+        </symbol>
+        <symbol id="icon-trash" viewBox="0 0 24 24">
+            <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
+            <path d="M10 11v6M14 11v6" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
+        </symbol>
+        <symbol id="icon-check" viewBox="0 0 24 24">
+            <path d="M20 6 9 17l-5-5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"/>
+        </symbol>
+        <symbol id="icon-x" viewBox="0 0 24 24">
+            <path d="M18 6 6 18M6 6l12 12" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"/>
+        </symbol>
+        <symbol id="icon-file-text" viewBox="0 0 24 24">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" fill="none" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
+        </symbol>
+        <symbol id="icon-refresh" viewBox="0 0 24 24">
+            <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.93 6.66 2.47M21 3v6h-6" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
+        </symbol>
+        <symbol id="icon-key" viewBox="0 0 24 24">
+            <path d="M12.5 14L10 16.5M10.5 13L13 10.5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
+            <path d="M14.5 4a3.5 3.5 0 1 1-3.5 3.5A3.5 3.5 0 0 1 14.5 4Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
+            <path d="m18.5 4.5 1.5 1.5M17 6l1.5 1.5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
+        </symbol>
+        <symbol id="icon-camera" viewBox="0 0 24 24">
+            <path d="M14.5 7h-5L7.75 9.25H4.25a2 2 0 0 0-2 2v7.5a2 2 0 0 0 2 2h15.5a2 2 0 0 0 2-2v-7.5a2 2 0 0 0-2-2h-3.5L14.5 7Z" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="1.8"/>
+            <circle cx="12" cy="13.75" r="3.25" fill="none" stroke="currentColor" stroke-width="1.8"/>
+        </symbol>
+        <symbol id="icon-theme" viewBox="0 0 24 24">
+            <path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
+        </symbol>
     </svg>
     <!-- Login Screen -->
     <div id="login-screen" class="login-screen">
@@ -131,15 +164,15 @@
             <nav>
                 <ul>
                     <li class="active" data-page="dashboard" data-title="Dashboard"><span class="nav-item-content"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-dashboard"></use></svg><span class="nav-text">Dashboard</span></span></li>
+                    <li data-page="attendance" data-title="Asistencia"><span class="nav-item-content"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-attendance"></use></svg><span class="nav-text">Asistencia</span></span></li>
                     <li data-page="devices" data-title="Dispositivos"><span class="nav-item-content"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-devices"></use></svg><span class="nav-text">Dispositivos</span></span></li>
                     <li class="nav-label">Organización</li>
                     <li data-page="employees" data-title="Empleados" class="nav-item-org"><span class="nav-item-content"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-users"></use></svg><span class="nav-text">Empleados</span></span></li>
                     <li data-page="departments" data-title="Departamentos" class="nav-item-org"><span class="nav-item-content"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-departments"></use></svg><span class="nav-text">Departamentos</span></span></li>
                     <li data-page="positions" data-title="Cargos" class="nav-item-org"><span class="nav-item-content"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-briefcase"></use></svg><span class="nav-text">Cargos</span></span></li>
-                    <li data-page="attendance" data-title="Asistencia" class="nav-item-org"><span class="nav-item-content"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-attendance"></use></svg><span class="nav-text">Asistencia</span></span></li>
                     <li data-page="travel-allowances" data-title="Viáticos" class="nav-item-org"><span class="nav-item-content"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-travel"></use></svg><span class="nav-text">Viáticos</span></span></li>
                     <li data-page="leaves" data-title="Permisos" class="nav-item-org"><span class="nav-item-content"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-calendar"></use></svg><span class="nav-text">Permisos</span></span></li>
-                    <li data-page="reports" data-title="Reportes"><span class="nav-item-content"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-reports"></use></svg><span class="nav-text">Reportes</span></span></li>
+
                     <li data-page="settings">Configuración</li>
                 </ul>
             </nav>
@@ -166,6 +199,9 @@
                     <h2 id="page-title">Dashboard</h2>
                 </div>
                 <div class="user-profile">
+                    <button class="btn-theme-toggle" id="btn-theme-toggle" aria-label="Cambiar tema" style="margin-right: 15px;">
+                        <svg style="width: 20px; height: 20px;"><use href="#icon-theme"></use></svg>
+                    </button>
                     <span class="status-dot"></span>
                     <span class="username" id="current-username">Admin</span>
                     <button class="btn btn-sm btn-secondary" id="btn-logout" style="margin-left: 10px;">Salir</button>
@@ -222,29 +258,64 @@
                 </div>
                 </div>
 
-                <div class="live-feed dashboard-panel">
-                    <div class="feed-header">
-                        <div>
-                            <h3>Ponches en Tiempo Real</h3>
-                            <p class="section-lead">Actividad reciente recibida por WebSocket y estado de conectividad del ecosistema operativo.</p>
+                <div class="dashboard-panel" style="margin-top: 1.5rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 1.5rem;">
+                    <div class="live-feed-section">
+                        <div class="feed-header" style="border-bottom: 1px solid var(--border); padding-bottom: 1rem; margin-bottom: 1rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                                <div>
+                                    <h3 style="font-size: 1.1rem;">Actividad Reciente</h3>
+                                    <p class="section-lead" style="font-size: 0.8rem;">Ponches en tiempo real desde terminales.</p>
+                                </div>
+                                <span class="badge badge-success">EN VIVO</span>
+                            </div>
                         </div>
-                        <button class="btn btn-sm" id="btn-scan">Escanear Red</button>
+                        <div class="feed-table-container" style="max-height: 400px; overflow-y: auto;">
+                            <table id="dashboard-events-table">
+                                <thead>
+                                    <tr>
+                                        <th>Hora</th>
+                                        <th>Empleado</th>
+                                        <th>Terminal</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td colspan="3" class="text-muted" style="text-align:center; padding:2rem;">Cargando actividad...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                    <div class="feed-table-container">
-                        <table id="events-table">
-                            <thead>
-                                <tr>
-                                    <th>Hora</th>
-                                    <th>Empleado</th>
-                                    <th>ID</th>
-                                    <th>Terminal</th>
-                                    <th>Estado</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- Dinámico -->
-                            </tbody>
-                        </table>
+
+                    <div class="reports-quick-section">
+                        <div class="feed-header" style="border-bottom: 1px solid var(--border); padding-bottom: 1rem; margin-bottom: 1rem;">
+                            <h3 style="font-size: 1.1rem;">Accesos Rápidos</h3>
+                            <p class="section-lead" style="font-size: 0.8rem;">Generación inmediata de informes.</p>
+                        </div>
+                        <div class="reports-grid" style="display: grid; gap: 1rem;">
+                            <div class="report-card" style="padding: 1rem; border: 1px solid var(--border); border-radius: 12px; display: flex; align-items: center; gap: 1rem;">
+                                <div class="stat-icon" style="width:40px; height:40px; min-width:40px;"><svg viewBox="0 0 24 24"><use href="#icon-reports"></use></svg></div>
+                                <div style="flex: 1;">
+                                    <h4 style="font-size: 0.95rem; margin-bottom: 2px;">Asistencia General</h4>
+                                    <p style="font-size: 0.75rem; color: var(--text-muted);">Informe detallado de ponches.</p>
+                                </div>
+                                <button class="btn btn-sm btn-outline" onclick="showReportPeriodModal()">Ver</button>
+                            </div>
+                            <div class="report-card" style="padding: 1rem; border: 1px solid var(--border); border-radius: 12px; display: flex; align-items: center; gap: 1rem;">
+                                <div class="stat-icon" style="width:40px; height:40px; min-width:40px; background:rgba(16,185,129,0.12); color:var(--success);"><svg viewBox="0 0 24 24"><use href="#icon-attendance"></use></svg></div>
+                                <div style="flex: 1;">
+                                    <h4 style="font-size: 0.95rem; margin-bottom: 2px;">Pre-Nómina</h4>
+                                    <p style="font-size: 0.75rem; color: var(--text-muted);">Cierre de horas trabajadas.</p>
+                                </div>
+                                <button class="btn btn-sm btn-outline" onclick="showReportPeriodModal()">Excel</button>
+                            </div>
+                            <div class="report-card" style="padding: 1rem; border: 1px solid var(--border); border-radius: 12px; display: flex; align-items: center; gap: 1rem;">
+                                <div class="stat-icon" style="width:40px; height:40px; min-width:40px; background:rgba(239,68,68,0.12); color:var(--danger);"><svg viewBox="0 0 24 24"><use href="#icon-alert"></use></svg></div>
+                                <div style="flex: 1;">
+                                    <h4 style="font-size: 0.95rem; margin-bottom: 2px;">Incidencias</h4>
+                                    <p style="font-size: 0.75rem; color: var(--text-muted);">Tardanzas y faltas justificadas.</p>
+                                </div>
+                                <button class="btn btn-sm btn-outline" onclick="showReportPeriodModal()">PDF</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -257,7 +328,8 @@
                     </div>
                     <div class="header-actions">
                         <button class="btn btn-secondary btn-sm" id="btn-add-device">+ Nuevo Dispositivo</button>
-                        <button class="btn btn-sm" id="btn-refresh-devices">Refrescar SADP</button>
+                        <button class="btn btn-secondary btn-sm" id="btn-read-recent-events" title="Leer eventos recientes de asistencia">Leer Ponches Recientes</button>
+                        <button class="btn btn-secondary btn-sm" id="btn-sync-all-config">Sincronizar Empleados</button>
                     </div>
                 </div>
                 <div class="device-admin-grid">
@@ -285,7 +357,13 @@
                                 <h4>Dispositivos configurados</h4>
                                 <p>Alias, credenciales y prioridad operativa.</p>
                             </div>
-                            <button class="btn btn-secondary btn-sm" id="btn-add-device-inline">Agregar manual</button>
+                            <div style="display:flex; gap:0.5rem;">
+                                <button class="btn btn-secondary btn-sm" id="btn-refresh-devices-status" title="Actualizar estado de conexión">
+                                    <svg style="width:14px;height:14px;margin-right:4px;"><use href="#icon-refresh"></use></svg>
+                                    Actualizar estados
+                                </button>
+                                <button class="btn btn-secondary btn-sm" id="btn-add-device-inline">Agregar manual</button>
+                            </div>
                         </div>
                         <div class="users-table-container">
                             <table id="managed-devices-table">
@@ -293,6 +371,7 @@
                                     <tr>
                                         <th>Dispositivo</th>
                                         <th>IP / Puerto</th>
+                                        <th>Estado</th>
                                         <th>Credenciales</th>
                                         <th>Rol</th>
                                         <th>Acciones</th>
@@ -305,41 +384,92 @@
                         </div>
                     </div>
 
-                    <div class="device-panel">
-                        <div class="device-panel-header">
-                            <div>
-                                <h4>Descubiertos en la red</h4>
-                                <p>Resultados de SADP para importar rápidamente al inventario.</p>
-                            </div>
-                            <button class="btn btn-sm" id="btn-scan-devices-inline">Escanear ahora</button>
+
+                </div>
+
+                <!-- Health Panel for Devices -->
+                <div class="device-panel" style="margin-top: 1.5rem; grid-column: 1/-1;">
+                    <div class="device-panel-header">
+                        <div>
+                            <h4>Centro de Salud y Sync (Logs)</h4>
+                            <p>Monitoreo de errores, fallas de sincronización y estado de red con las terminales ISAPI.</p>
                         </div>
-                        <div class="users-table-container">
-                            <table id="devices-table">
-                                <thead>
-                                    <tr>
-                                        <th>Modelo</th>
-                                        <th>Serie</th>
-                                        <th>IP</th>
-                                        <th>Fuente</th>
-                                        <th>Acción</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="discovered-devices-list">
-                                    <!-- Dispositivos encontrados aparecerán aquí -->
-                                </tbody>
-                            </table>
+                        <div style="display:flex; gap:0.5rem;">
+                            <button class="btn btn-secondary btn-sm" id="btn-refresh-device-logs" title="Actualizar logs de dispositivos">
+                                <svg style="width:14px;height:14px;margin-right:4px;"><use href="#icon-refresh"></use></svg>
+                                Refrescar Logs
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="health-panel">
+                        <div class="health-card">
+                            <h5>Errores ISAPI Activos</h5>
+                            <span class="value" id="health-error-count">0</span>
+                            <div class="status-indicator" style="color: #ef4444;">
+                                <svg viewBox="0 0 24 24" style="width:16px;height:16px;" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                Verificando operaciones
+                            </div>
+                        </div>
+                        
+                        <div class="health-card">
+                            <h5>Último Fallo de Red</h5>
+                            <span class="value" id="health-last-failure" style="font-size: 1.25rem;">N/D</span>
+                            <div class="status-indicator">
+                                Estado de latencia normal
+                            </div>
+                        </div>
+
+                        <div class="health-card" style="grid-column: 1/-1; background: rgba(0,0,0,0.2);">
+                            <div class="users-table-container" style="max-height: 250px; overflow-y: auto;">
+                                <table class="logs-table" id="device-logs-table">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 140px;">Timestamp</th>
+                                            <th style="width: 120px;">Dispositivo</th>
+                                            <th style="width: 100px;">Nivel</th>
+                                            <th style="width: 180px;">Operación</th>
+                                            <th>Mensaje de Error</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="device-logs-list">
+                                        <tr>
+                                            <td colspan="5" style="text-align: center; color: var(--text-muted);">Iniciando monitor de diagnóstico...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>
+
             </section>
 
             <section id="employees" class="page">
                 <div class="page-header">
                     <h3>Gestión de Empleados</h3>
-                    <button class="btn btn-sm" id="btn-add-employee">+ Nuevo Empleado</button>
+                    <div class="header-actions" style="display:flex; gap:1rem; align-items:center;">
+                        <input type="text" id="employee-search" placeholder="Buscar empleado..." style="padding:0.4rem 0.8rem; border-radius:0.6rem; border:1px solid var(--border); background:rgba(255,255,255,0.05); color:white; width: 250px; font-size: 0.85rem;" autocomplete="off">
+                        <button class="btn btn-sm" id="btn-add-employee">+ Nuevo Empleado</button>
+                    </div>
                 </div>
-                <div class="employees-grid" id="employees-list">
-                    <!-- Tarjetas de empleados -->
+                <div class="card">
+                    <div class="users-table-container">
+                        <table id="employees-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Nombre Completo</th>
+                                    <th>Departamento</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="employees-list">
+                                <!-- Empleados cargados dinámicamente -->
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </section>
 
@@ -534,14 +664,28 @@
 
                             <h3>Asistencia por Período</h3>
                         </div>
+                        <div class="ar-refresh-config" style="display:flex; align-items:center; gap:0.6rem; margin-right:1rem; padding-right:1rem; border-right:1px solid var(--border);">
+                            <span style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em;">Auto Refresco</span>
+                            <select id="ar-refresh-interval" class="ar-input-sm" style="width:110px; font-size:0.8rem; padding:0.3rem 1.8rem 0.3rem 0.6rem;">
+                                <option value="0">Apagado</option>
+                                <option value="60">1 Minuto</option>
+                                <option value="300" selected>5 Minutos</option>
+                                <option value="600">10 Minutos</option>
+                            </select>
+                            <span id="ar-refresh-countdown" style="font-size:0.75rem; color:var(--accent); font-family:var(--font-mono); min-width:40px; text-align:right;"></span>
+                        </div>
                         <div class="ar-export-btns">
                             <button class="btn btn-secondary btn-sm" id="ar-export-excel">
                                 <svg viewBox="0 0 24 24" aria-hidden="true" style="width:15px;height:15px"><use href="#icon-reports"></use></svg>
                                 Excel
                             </button>
-                            <button class="btn btn-sm" id="ar-export-pdf">
-                                <svg viewBox="0 0 24 24" aria-hidden="true" style="width:15px;height:15px"><use href="#icon-reports"></use></svg>
+                            <button class="btn btn-secondary btn-sm" id="ar-export-pdf" style="background-color: var(--amber); color: #000;">
+                                <svg viewBox="0 0 24 24" aria-hidden="true" style="width:15px;height:15px; fill: #000;"><use href="#icon-reports"></use></svg>
                                 PDF
+                            </button>
+                            <button class="btn btn-primary btn-sm" id="ar-sync-btn" style="margin-left: 0.5rem;">
+                                <svg viewBox="0 0 24 24" aria-hidden="true" style="width:15px;height:15px"><use href="#icon-refresh"></use></svg>
+                                Sincronizar
                             </button>
                         </div>
                     </div>
@@ -638,7 +782,12 @@
                     </div>
 
                     <div class="ar-footer" id="ar-footer" style="display:none">
-                        <span id="ar-row-count"></span>
+                        <div class="ar-footer-info">
+                            <span id="ar-row-count"></span>
+                        </div>
+                        <div class="ar-pagination" id="ar-pagination">
+                            <!-- Botones de paginación dinámicos -->
+                        </div>
                     </div>
                 </div>
             </section>
@@ -677,12 +826,18 @@
                             <form id="config-form">
                                 <div class="form-grid">
                                     <div class="form-group" style="grid-column: 1/-1;">
-                                        <label>Nombre de la Empresa</label>
-                                        <input type="text" name="company_name" placeholder="Tu Empresa S.R.L.">
+                                        <label>RNC de la Empresa</label>
+                                        <div style="display: flex; gap: 10px;">
+                                            <input type="text" name="company_rnc" id="config-company-rnc" placeholder="130123456" style="flex: 1;">
+                                            <button type="button" id="btn-consult-rnc" class="btn btn-secondary" style="padding: 0 15px; height: 42px; font-size: 0.85rem; display: flex; align-items: center; gap: 8px; white-space: nowrap;">
+                                                 <svg style="width:16px;height:16px;"><use href="#icon-refresh"></use></svg>
+                                                 Consultar RNC
+                                            </button>
+                                        </div>
                                     </div>
                                     <div class="form-group" style="grid-column: 1/-1;">
-                                        <label>RNC (Opcional)</label>
-                                        <input type="text" name="company_rnc" placeholder="1-30-12345-6">
+                                        <label>Nombre de la Empresa</label>
+                                        <input type="text" name="company_name" placeholder="Tu Empresa S.R.L.">
                                     </div>
                                     <div class="form-group">
                                         <label>Tolerancia (Minutos)</label>
@@ -691,6 +846,13 @@
                                     <div class="form-group">
                                         <label>Horas Jornada</label>
                                         <input type="number" name="work_hours" value="8">
+                                    </div>
+                                    <div class="form-group" style="grid-column: 1/-1; margin-top: 10px;">
+                                        <label class="checkbox-container">
+                                            <input type="checkbox" name="travel_module_enabled" value="true">
+                                            <span class="checkmark"></span>
+                                            Habilitar Módulo de Viáticos (Modular)
+                                        </label>
                                     </div>
                                 </div>
                                 <div class="settings-actions">
@@ -811,6 +973,20 @@
             <form id="employee-form" class="modal-body">
                 <input type="hidden" name="id" id="employee-id">
                 <div class="form-grid">
+                    <!-- Photo Column (Spans 2 rows) -->
+                    <div class="form-group" style="grid-row: span 2; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(255,255,255,0.02); border-radius: 1.25rem; border: 1px dashed var(--border-strong); padding: 1.5rem; position: relative;">
+                        <span class="eyebrow" style="position: absolute; top: 0.75rem; left: 0.75rem; margin-bottom: 0;">Rostro</span>
+                        <div class="photo-preview-wrapper" style="position: relative; width: 150px; height: 150px; margin-bottom: 1.25rem; margin-top: 1rem;">
+                             <img id="employee-photo-preview" src="" alt="Foto" style="width: 100%; height: 100%; border-radius: 1.25rem; object-fit: cover; border: 1px solid var(--border-strong); display: none; box-shadow: var(--shadow-soft);">
+                             <div id="employee-photo-placeholder" style="width: 100%; height: 100%; border-radius: 1.25rem; background: var(--bg-main); display: flex; align-items: center; justify-content: center; border: 1px solid var(--border-strong);">
+                                 <svg viewBox="0 0 24 24" style="width: 54px; height: 54px; opacity: 0.2;"><use href="#icon-user"></use></svg>
+                             </div>
+                        </div>
+                        <button type="button" class="btn btn-xs btn-secondary" onclick="document.getElementById('emp-photo-input').click()">Subir Imagen</button>
+                        <input type="file" id="emp-photo-input" style="display: none;" accept="image/jpeg">
+                        <p class="text-muted" style="font-size: 0.7rem; margin-top: 0.75rem; text-align: center;">Recomendado: JPG cuadrado, buena luz.</p>
+                    </div>
+
                     <div class="form-group">
                         <label>Nombre(s)</label>
                         <input type="text" name="firstName" required placeholder="Ej. Juan">
@@ -963,6 +1139,27 @@
         </div>
     </div>
 
+    <!-- Modal: Seleccionar Terminal para Dar Acceso -->
+    <div class="modal-overlay" id="device-picker-modal">
+        <div class="modal-card" style="width: 480px;">
+            <div class="modal-header">
+                <h3>Seleccionar Terminal</h3>
+                <button class="close-modal" onclick="document.getElementById('device-picker-modal').classList.remove('active')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="device-picker-emp-no">
+                <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.2rem;">
+                    Selecciona la terminal donde registrar el acceso de
+                    <strong id="device-picker-emp-name"></strong>:
+                </p>
+                <div id="device-picker-list" style="display: flex; flex-direction: column; gap: 0.6rem;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('device-picker-modal').classList.remove('active')">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal Nuevo/Editar Usuario -->
     <div class="modal-overlay" id="user-modal">
         <div class="modal-card" style="width: 500px;">
@@ -1046,7 +1243,7 @@
 
     <!-- Modal Nuevo/Editar Cargo -->
     <div class="modal-overlay" id="pos-modal">
-        <div class="modal-card" style="width: 500px;">
+        <div class="modal-card">
             <div class="modal-header">
                 <h3 id="pos-modal-title">Nuevo Cargo</h3>
                 <button class="close-modal">&times;</button>
@@ -1079,7 +1276,7 @@
 
     <!-- Modal Nueva / Editar Solicitud de Viático -->
     <div class="modal-overlay" id="travel-modal">
-        <div class="modal-card" style="width: 640px;">
+        <div class="modal-card">
             <div class="modal-header">
                 <h3 id="travel-modal-title">Nueva Solicitud de Viático</h3>
                 <button class="close-modal" data-modal="travel-modal">&times;</button>
@@ -1096,7 +1293,7 @@
                     </div>
                     <div class="form-group">
                         <label>Nombre del Grupo (opcional)</label>
-                        <input type="text" id="travel-group-name" placeholder="Ej. Brigada Norte / Equipo Comercial">
+                        <input type="text" id="travel-group-name" placeholder="Ej. Brigada Norte">
                     </div>
                     <div class="form-group">
                         <label>Empleado</label>
@@ -1104,22 +1301,24 @@
                             <option value="">Seleccionar empleado...</option>
                         </select>
                     </div>
-                    <div class="form-group" id="travel-group-wrap" style="display:none;">
+                    
+                    <div class="form-group" id="travel-group-wrap" style="display:none; grid-column: 1/-1;">
                         <label>Participantes</label>
-                        <select id="travel-employees-group" multiple size="6">
+                        <select id="travel-employees-group" multiple size="4">
                         </select>
-                        <small class="text-muted">Usa Ctrl o Shift para seleccionar varios empleados.</small>
                     </div>
+
                     <div class="form-group">
                         <label>Tarifa de Viático</label>
                         <select name="rateId" id="travel-rate" required>
                             <option value="">Seleccionar tarifa...</option>
                         </select>
                     </div>
-                    <div class="form-group" style="grid-column: 1/-1;">
+                    <div class="form-group" style="grid-column: span 2;">
                         <label>Destino</label>
                         <input type="text" name="destination" id="travel-destination" required placeholder="Ej. Santiago, República Dominicana">
                     </div>
+
                     <div class="form-group">
                         <label>Fecha de Salida</label>
                         <input type="date" name="departureDate" id="travel-departure" required>
@@ -1128,9 +1327,13 @@
                         <label>Fecha de Regreso</label>
                         <input type="date" name="returnDate" id="travel-return" required>
                     </div>
+                    <div class="form-group">
+                        <!-- Empty space for 3rd col or shift other field here -->
+                    </div>
+
                     <div class="form-group" style="grid-column: 1/-1;">
                         <label>Motivo del Viaje</label>
-                        <textarea name="reason" id="travel-reason" rows="3" placeholder="Descripción del propósito del viaje..."></textarea>
+                        <textarea name="reason" id="travel-reason" rows="2" placeholder="Descripción del propósito del viaje..."></textarea>
                     </div>
                     <!-- Resultado del cálculo -->
                     <div class="form-group" style="grid-column: 1/-1;">
@@ -1160,7 +1363,7 @@
 
     <!-- Modal Gestión de Tarifas -->
     <div class="modal-overlay" id="rates-modal">
-        <div class="modal-card" style="width: 560px;">
+        <div class="modal-card">
             <div class="modal-header">
                 <h3>Gestión de Tarifas</h3>
                 <button class="close-modal" data-modal="rates-modal">&times;</button>
@@ -1213,7 +1416,7 @@
 
     <!-- Modal de Aprobación / Rechazo -->
     <div class="modal-overlay" id="travel-decision-modal">
-        <div class="modal-card" style="width: 420px;">
+        <div class="modal-card">
             <div class="modal-header">
                 <h3 id="decision-modal-title">Aprobar Solicitud</h3>
                 <button class="close-modal" data-modal="travel-decision-modal">&times;</button>
@@ -1237,7 +1440,7 @@
 
     <!-- Logout Modal -->
     <div class="modal-overlay" id="logout-modal">
-        <div class="modal-card" style="width: 400px; text-align: center;">
+        <div class="modal-card" style="text-align: center;">
             <div class="modal-body" style="padding: 2.5rem 2.2rem 1rem;">
                 <div class="login-icon" style="background: rgba(239, 68, 68, 0.12); color: #ef4444; margin: 0 auto 1.5rem;">
                     <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
@@ -1295,7 +1498,7 @@
 
     <!-- Modal: Reporte de Asistencia por Período -->
     <div class="modal-overlay" id="attendance-period-modal">
-        <div class="modal-card" style="width: 480px;">
+        <div class="modal-card">
             <div class="modal-header">
                 <h3>Reporte de Asistencia por Período</h3>
                 <button class="close-modal" id="close-attendance-period-modal">&times;</button>
@@ -1332,11 +1535,12 @@
                     Descargar Excel
                 </button>
             </div>
+        </div>
     </div>
 
     <!-- Modal Nuevo / Editar Permiso -->
     <div class="modal-overlay" id="leave-modal">
-        <div class="modal-card" style="width: 500px;">
+        <div class="modal-card">
             <div class="modal-header">
                 <h3 id="leave-modal-title">Solicitud de Permiso</h3>
                 <button class="close-modal" data-modal="leave-modal">&times;</button>
@@ -1361,14 +1565,6 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Estado</label>
-                        <select name="status" id="leave-status" required>
-                            <option value="Approved">Aprobado</option>
-                            <option value="Pending">Pendiente</option>
-                            <option value="Rejected">Rechazado</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
                         <label>Fecha de Salida</label>
                         <input type="date" name="startDate" id="leave-start" required>
                     </div>
@@ -1379,6 +1575,14 @@
                     <div class="form-group">
                         <label>Días Solicitados</label>
                         <input type="number" name="days" id="leave-days" min="1" value="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Estado</label>
+                        <select name="status" id="leave-status" required>
+                            <option value="Approved">Aprobado</option>
+                            <option value="Pending">Pendiente</option>
+                            <option value="Rejected">Rechazado</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label>Autorizado por</label>
@@ -1405,7 +1609,7 @@
 
     <!-- Modal Reportar Empleado (Notificación) -->
     <div class="modal-overlay" id="notify-modal">
-        <div class="modal-card" style="width: 500px;">
+        <div class="modal-card">
             <div class="modal-header">
                 <h3>Reportar Novedad</h3>
                 <button class="close-modal" data-modal="notify-modal">&times;</button>
@@ -1426,6 +1630,6 @@
     </div>
 
     <!-- Scripts -->
-    <script src="app.js?v=20260320a"></script>
+    <script src="app.js?v=20260418h"></script>
 </body>
 </html>

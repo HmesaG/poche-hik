@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(go build *)",
+      "Bash(openssl rand *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://10.0.0.100:80)",
+      "Bash(./ponches.exe)",
+      "Bash(curl *)"
+    ]
+  }
+}

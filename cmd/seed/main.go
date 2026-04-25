@@ -34,6 +34,7 @@ func main() {
 	seedEmployees(ctx, repo)
 	seedTravelRates(ctx, repo)
 	seedTravelAllowances(ctx, repo)
+	seedLeaves(ctx, repo)
 
 	fmt.Println("\n✅ Datos de prueba cargados exitosamente.")
 	os.Exit(0)
@@ -402,6 +403,57 @@ func seedTravelAllowances(ctx context.Context, repo store.Repository) {
 		}
 	}
 	fmt.Printf("  → %d solicitudes de viáticos insertadas\n", count)
+}
+
+// ─── PERMISOS (LEAVES) ────────────────────────────────────────────────────────
+
+func seedLeaves(ctx context.Context, repo store.Repository) {
+	leaves := []*employees.Leave{
+		{
+			ID: "leave-001", EmployeeID: "emp-002", Type: "Vacation",
+			StartDate: mustDate("2026-03-20"), EndDate: mustDate("2026-03-27"),
+			Days: 7, Reason: "Vacaciones anuales reglamentarias.", Status: "Approved",
+			Notes: "Disfruta tus vacaciones.",
+		},
+		{
+			ID: "leave-002", EmployeeID: "emp-004", Type: "Sick",
+			StartDate: mustDate("2026-04-10"), EndDate: mustDate("2026-04-12"),
+			Days: 2, Reason: "Licencia médica por proceso febril.", Status: "Approved",
+			Notes: "Licencia médica recibida.",
+		},
+		{
+			ID: "leave-003", EmployeeID: "emp-007", Type: "Personal",
+			StartDate: mustDate("2026-04-18"), EndDate: mustDate("2026-04-18"),
+			Days: 1, Reason: "Diligencias personales impostergables.", Status: "Pending",
+		},
+		{
+			ID: "leave-004", EmployeeID: "emp-003", Type: "Other",
+			StartDate: mustDate("2026-05-01"), EndDate: mustDate("2026-05-03"),
+			Days: 3, Reason: "Participación en congreso internacional.", Status: "Approved",
+			Notes: "Evento aprobado por gerencia TI.",
+		},
+		{
+			ID: "leave-005", EmployeeID: "emp-010", Type: "Personal",
+			StartDate: mustDate("2026-04-20"), EndDate: mustDate("2026-04-20"),
+			Days: 1, Reason: "Asuntos de mudanza.", Status: "Rejected",
+			Notes: "No procede por carga de trabajo actual.",
+		},
+	}
+
+	count := 0
+	for _, l := range leaves {
+		existing, _ := repo.GetLeave(ctx, l.ID)
+		if existing != nil {
+			continue
+		}
+		if err := repo.CreateLeave(ctx, l); err != nil {
+			fmt.Printf("  ⚠ Permiso %s: %v\n", l.ID, err)
+		} else {
+			count++
+			fmt.Printf("  ✓ Permiso: %s (%s, %d días) [%s]\n", l.ID, l.Type, l.Days, l.Status)
+		}
+	}
+	fmt.Printf("  → %d permisos insertados\n", count)
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────

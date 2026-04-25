@@ -23,6 +23,9 @@ func ApplyOverrides(cfg *Config, values map[string]string) {
 	if value, ok := values["hikvision_ip"]; ok && value != "" {
 		cfg.HikvisionIP = value
 	}
+	if value, ok := values["hikvision_port"]; ok && value != "" {
+		cfg.HikvisionPort = parseInt(value, cfg.HikvisionPort)
+	}
 	if value, ok := values["hikvision_username"]; ok && value != "" {
 		cfg.HikvisionUsername = value
 	}

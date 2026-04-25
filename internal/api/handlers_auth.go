@@ -86,7 +86,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	setAuthCookie(w, r, token, expiresAt)
 
 	response := users.LoginResponse{
-		Token:     "",
+		Token:     token,
 		ExpiresAt: expiresAt.Unix(),
 		User: users.User{
 			ID:       user.ID,
