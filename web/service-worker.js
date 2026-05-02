@@ -3,15 +3,15 @@ const SHELL_CACHE = "ponches-shell-v4";
 const STATIC_ASSETS = [
   "/",
   "/index.html",
-  "/style.css?v=20260319b",
-  "/app.js?v=20260319b",
+  "/assets/css/style.css?v=20260319b",
+  "/assets/js/app.js?v=20260319b",
   "/manifest.webmanifest",
   "/offline.html",
-  "/favicon-32.png",
-  "/apple-touch-icon.png",
-  "/icons/icon-192.png",
-  "/icons/icon-512.png",
-  "/icons/icon-maskable-512.png"
+  "/assets/img/favicon-32.png",
+  "/assets/img/apple-touch-icon.png",
+  "/assets/icons/icon-192.png",
+  "/assets/icons/icon-512.png",
+  "/assets/icons/icon-maskable-512.png"
 ];
 
 self.addEventListener("install", (event) => {

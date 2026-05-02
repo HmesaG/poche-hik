@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -163,6 +164,12 @@ func buildVCard(emp *employees.Employee, fullName, departmentName, positionName 
 	}
 	if email := strings.TrimSpace(emp.Email); email != "" {
 		lines = append(lines, "EMAIL;TYPE=INTERNET:"+vCardEscape(email))
+	}
+
+	if len(emp.PhotoData) > 0 {
+		// Encode photo to base64
+		photoBase64 := base64.StdEncoding.EncodeToString(emp.PhotoData)
+		lines = append(lines, "PHOTO;ENCODING=b;TYPE=JPEG:"+photoBase64)
 	}
 
 	publicURL := "/directorio"

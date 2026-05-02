@@ -31,10 +31,11 @@ type userInfoXML struct {
 	// userType: normal | visitor | blackList | administrator
 	UserType string `xml:"userType" json:"userType"`
 	// gender: male | female
-	Gender     string         `xml:"gender,omitempty" json:"gender,omitempty"`
-	Valid      validXML       `xml:"Valid" json:"Valid"`
-	DoorRight  string         `xml:"doorRight" json:"doorRight"`
-	RightPlan  []rightPlanXML `xml:"RightPlan" json:"RightPlan"`
+	Gender    string         `xml:"gender,omitempty" json:"gender,omitempty"`
+	Valid     validXML       `xml:"Valid" json:"Valid"`
+	DoorRight string         `xml:"doorRight" json:"doorRight"`
+	RightPlan []rightPlanXML `xml:"RightPlan" json:"RightPlan"`
+	NumOfFace int            `xml:"numOfFace,omitempty" json:"numOfFace,omitempty"`
 }
 
 type validXML struct {
@@ -57,19 +58,40 @@ type userInfoSearchCond struct {
 	SearchResultOffset int      `xml:"searchResultOffset"`
 }
 
+type userInfoSearchCondJSON struct {
+	UserInfoSearchCond userInfoSearchFilter `json:"UserInfoSearchCond"`
+}
+
+type userInfoSearchFilter struct {
+	SearchID             string              `json:"searchID"`
+	MaxResults           int                 `json:"maxResults"`
+	SearchResultPosition int                 `json:"searchResultPosition"`
+	EmployeeNoList       []map[string]string `json:"EmployeeNoList,omitempty"`
+}
+
 // userInfoSearchResult is the response from the search endpoint.
 type userInfoSearchResult struct {
-	XMLName      xml.Name      `xml:"UserInfoSearch"`
-	ResponseStatusCode int     `xml:"responseStatusCode"`
-	TotalMatches int           `xml:"totalMatches"`
-	IsSearchDone bool          `xml:"isSearchDone"`
-	UserInfoList []userInfoXML `xml:"UserInfoList>UserInfo"`
+	XMLName            xml.Name      `xml:"UserInfoSearch"`
+	ResponseStatusCode int           `xml:"responseStatusCode"`
+	TotalMatches       int           `xml:"totalMatches"`
+	IsSearchDone       bool          `xml:"isSearchDone"`
+	UserInfoList       []userInfoXML `xml:"UserInfoList>UserInfo"`
+}
+
+type userInfoSearchResultJSON struct {
+	UserInfoSearch struct {
+		SearchID           string        `json:"searchID"`
+		ResponseStatusStrg string        `json:"responseStatusStrg"`
+		NumOfMatches       int           `json:"numOfMatches"`
+		TotalMatches       int           `json:"totalMatches"`
+		UserInfo           []userInfoXML `json:"UserInfo"`
+	} `json:"UserInfoSearch"`
 }
 
 // userInfoDelCond is the request body for /ISAPI/AccessControl/UserInfo/Delete.
 type userInfoDelCond struct {
-	XMLName     xml.Name `xml:"UserInfoDelCond"`
-	XMLNS       string   `xml:"xmlns,attr"`
+	XMLName     xml.Name        `xml:"UserInfoDelCond"`
+	XMLNS       string          `xml:"xmlns,attr"`
 	EmployeeIDs []employeeNoXML `xml:"EmployeeNoList>EmployeeNo"`
 }
 
@@ -78,7 +100,7 @@ type employeeNoXML struct {
 }
 
 const (
-	isapiNS         = "http://www.isapi.org/ver20/XMLSchema"
+	isapiNS          = "http://www.isapi.org/ver20/XMLSchema"
 	defaultBeginTime = "2020-01-01T00:00:00"
 	defaultEndTime   = "2037-12-31T23:59:59"
 	defaultDoorRight = "1"
@@ -210,36 +232,76 @@ func (c *Client) CreateUsers(ctx context.Context, emps []*employees.Employee) er
 // GetUsers retrieves all users from the device, paginating automatically.
 // Returns a slice of raw ISAPI user structs; use UserInfoToEmployee for conversion.
 func (c *Client) GetUsers(ctx context.Context) ([]userInfoXML, error) {
+	return c.searchUsers(ctx, nil)
+}
+
+// GetUser returns the first matching user for an employee number, or nil if not found.
+func (c *Client) GetUser(ctx context.Context, employeeNo string) (*userInfoXML, error) {
+	employeeNo = strings.TrimSpace(employeeNo)
+	if employeeNo == "" {
+		return nil, fmt.Errorf("employeeNo is required")
+	}
+
+	users, err := c.searchUsers(ctx, []string{employeeNo})
+	if err != nil {
+		return nil, err
+	}
+	for i := range users {
+		if users[i].EmployeeNo == employeeNo {
+			return &users[i], nil
+		}
+	}
+	return nil, nil
+}
+
+func (c *Client) searchUsers(ctx context.Context, employeeNos []string) ([]userInfoXML, error) {
 	const pageSize = 20
 	var all []userInfoXML
 	offset := 0
 
 	for {
-		cond := userInfoSearchCond{
-			XMLNS:              isapiNS,
-			SearchID:           fmt.Sprintf("get_users_%d_%d", offset, time.Now().UnixMilli()),
-			MaxResults:         pageSize,
-			SearchResultOffset: offset,
+		cond := userInfoSearchCondJSON{
+			UserInfoSearchCond: userInfoSearchFilter{
+				SearchID:             fmt.Sprintf("get_users_%d_%d", offset, time.Now().UnixMilli()),
+				MaxResults:           pageSize,
+				SearchResultPosition: offset,
+			},
+		}
+		for _, employeeNo := range employeeNos {
+			employeeNo = strings.TrimSpace(employeeNo)
+			if employeeNo == "" {
+				continue
+			}
+			cond.UserInfoSearchCond.EmployeeNoList = append(cond.UserInfoSearchCond.EmployeeNoList, map[string]string{
+				"employeeNo": employeeNo,
+			})
 		}
 
-		payload, err := xml.Marshal(cond)
+		payload, err := json.Marshal(cond)
 		if err != nil {
 			return nil, fmt.Errorf("marshal search cond: %w", err)
 		}
 
-		resp, err := c.Do(ctx, "POST", "/ISAPI/AccessControl/UserInfo/Search", nil, xmlHeader(payload))
+		resp, err := c.Do(ctx, "POST", "/ISAPI/AccessControl/UserInfo/Search?format=json",
+			map[string]string{"Content-Type": "application/json", "Accept": "application/json"}, payload)
 		if err != nil {
 			return nil, fmt.Errorf("search users (offset=%d): %w", offset, err)
 		}
 
-		var result userInfoSearchResult
-		if err := xml.Unmarshal(resp, &result); err != nil {
+		var result userInfoSearchResultJSON
+		if err := json.Unmarshal(resp, &result); err != nil {
 			return nil, fmt.Errorf("unmarshal users response: %w (body: %s)", err, string(resp))
 		}
 
-		all = append(all, result.UserInfoList...)
+		all = append(all, result.UserInfoSearch.UserInfo...)
 
-		if result.IsSearchDone || len(all) >= result.TotalMatches {
+		if len(employeeNos) > 0 {
+			break
+		}
+		if strings.EqualFold(result.UserInfoSearch.ResponseStatusStrg, "OK") || len(all) >= result.UserInfoSearch.TotalMatches {
+			break
+		}
+		if result.UserInfoSearch.NumOfMatches == 0 {
 			break
 		}
 		offset += pageSize
@@ -328,7 +390,7 @@ func (c *Client) upsertBatch(ctx context.Context, emps []*employees.Employee) er
 					// User exists - Try Update via Modify endpoint first (more efficient)
 					_, modErr := c.Do(ctx, "PUT", "/ISAPI/AccessControl/UserInfo/Modify?format=json",
 						map[string]string{"Content-Type": "application/json"}, payload)
-					
+
 					if modErr == nil {
 						continue
 					}

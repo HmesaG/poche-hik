@@ -90,18 +90,18 @@ func (s *Server) handleReportPayroll(w http.ResponseWriter, r *http.Request) {
 
 	if fromStr != "" && toStr != "" {
 		var err error
-		from, err = time.Parse("2006-01-02", fromStr)
+		from, err = time.ParseInLocation("2006-01-02", fromStr, time.Local)
 		if err != nil {
 			from = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local)
 		}
-		to, err = time.Parse("2006-01-02", toStr)
+		to, err = time.ParseInLocation("2006-01-02", toStr, time.Local)
 		if err != nil {
-			to = now
+			to = time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, time.Local)
 		}
 	} else {
 		// Default: current month 1st to today
 		from = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local)
-		to = now
+		to = time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, time.Local)
 	}
 
 	// Get all employees
@@ -185,7 +185,7 @@ func (s *Server) handleGetAttendanceSummary(w http.ResponseWriter, r *http.Reque
 	var err error
 
 	if fromStr != "" {
-		from, err = time.Parse("2006-01-02", fromStr)
+		from, err = time.ParseInLocation("2006-01-02", fromStr, time.Local)
 		if err != nil {
 			from = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local)
 		}
@@ -194,12 +194,12 @@ func (s *Server) handleGetAttendanceSummary(w http.ResponseWriter, r *http.Reque
 	}
 
 	if toStr != "" {
-		to, err = time.Parse("2006-01-02", toStr)
+		to, err = time.ParseInLocation("2006-01-02", toStr, time.Local)
 		if err != nil {
-			to = now
+			to = time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, time.Local)
 		}
 	} else {
-		to = now
+		to = time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, time.Local)
 	}
 
 	// Create processor
@@ -440,7 +440,7 @@ func (s *Server) handleReportLate(w http.ResponseWriter, r *http.Request) {
 	var err error
 
 	if fromStr != "" {
-		from, err = time.Parse("2006-01-02", fromStr)
+		from, err = time.ParseInLocation("2006-01-02", fromStr, time.Local)
 		if err != nil {
 			from = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local)
 		}
@@ -449,12 +449,12 @@ func (s *Server) handleReportLate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if toStr != "" {
-		to, err = time.Parse("2006-01-02", toStr)
+		to, err = time.ParseInLocation("2006-01-02", toStr, time.Local)
 		if err != nil {
-			to = now
+			to = time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, time.Local)
 		}
 	} else {
-		to = now
+		to = time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, time.Local)
 	}
 
 	// Create processor
@@ -520,7 +520,7 @@ func (s *Server) handleReportKPIs(w http.ResponseWriter, r *http.Request) {
 	var err error
 
 	if fromStr != "" {
-		from, err = time.Parse("2006-01-02", fromStr)
+		from, err = time.ParseInLocation("2006-01-02", fromStr, time.Local)
 		if err != nil {
 			from = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local)
 		}
@@ -529,12 +529,12 @@ func (s *Server) handleReportKPIs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if toStr != "" {
-		to, err = time.Parse("2006-01-02", toStr)
+		to, err = time.ParseInLocation("2006-01-02", toStr, time.Local)
 		if err != nil {
-			to = now
+			to = time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, time.Local)
 		}
 	} else {
-		to = now
+		to = time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, time.Local)
 	}
 
 	// Create processor
@@ -669,7 +669,7 @@ func (s *Server) buildAttendancePeriodRows(r *http.Request, fromStr, toStr, filt
 	var err error
 
 	if fromStr != "" {
-		from, err = time.Parse("2006-01-02", fromStr)
+		from, err = time.ParseInLocation("2006-01-02", fromStr, time.Local)
 		if err != nil {
 			from = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local)
 		}
@@ -678,12 +678,12 @@ func (s *Server) buildAttendancePeriodRows(r *http.Request, fromStr, toStr, filt
 	}
 
 	if toStr != "" {
-		to, err = time.Parse("2006-01-02", toStr)
+		to, err = time.ParseInLocation("2006-01-02", toStr, time.Local)
 		if err != nil {
-			to = now
+			to = time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, time.Local)
 		}
 	} else {
-		to = now
+		to = time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, time.Local)
 	}
 
 	emps, err := s.Store.ListEmployees(r.Context())

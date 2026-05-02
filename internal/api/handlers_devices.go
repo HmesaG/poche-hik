@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -26,33 +27,35 @@ import (
 const managedDevicesConfigKey = "managed_devices"
 
 type ManagedDevice struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	IP        string    `json:"ip"`
-	Username  string    `json:"username"`
-	Password  string    `json:"password,omitempty"`
-	Port      int       `json:"port"`
-	Model     string    `json:"model,omitempty"`
-	Serial    string    `json:"serial,omitempty"`
-	Source    string    `json:"source,omitempty"`
-	IsDefault bool      `json:"isDefault"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	ID             string    `json:"id"`
+	Name           string    `json:"name"`
+	IP             string    `json:"ip"`
+	Username       string    `json:"username"`
+	Password       string    `json:"password,omitempty"`
+	Port           int       `json:"port"`
+	Model          string    `json:"model,omitempty"`
+	Serial         string    `json:"serial,omitempty"`
+	Source         string    `json:"source,omitempty"`
+	IsDefault      bool      `json:"isDefault"`
+	TimezoneOffset string    `json:"timezoneOffset,omitempty"` // e.g. "+08:00"
+	UpdatedAt      time.Time `json:"updatedAt"`
 }
 
 type managedDeviceResponse struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	IP          string    `json:"ip"`
-	Username    string    `json:"username"`
-	Port        int       `json:"port"`
-	Model       string    `json:"model,omitempty"`
-	Serial      string    `json:"serial,omitempty"`
-	Source      string    `json:"source,omitempty"`
-	IsDefault   bool      `json:"isDefault"`
-	HasPassword bool      `json:"hasPassword"`
-	IsOnline    bool      `json:"isOnline"`
-	Error       string    `json:"error,omitempty"`
-	UpdatedAt   time.Time `json:"updatedAt"`
+	ID             string    `json:"id"`
+	Name           string    `json:"name"`
+	IP             string    `json:"ip"`
+	Username       string    `json:"username"`
+	Port           int       `json:"port"`
+	Model          string    `json:"model,omitempty"`
+	Serial         string    `json:"serial,omitempty"`
+	Source         string    `json:"source,omitempty"`
+	IsDefault      bool      `json:"isDefault"`
+	HasPassword    bool      `json:"hasPassword"`
+	IsOnline       bool      `json:"isOnline"`
+	Error          string    `json:"error,omitempty"`
+	TimezoneOffset string    `json:"timezoneOffset,omitempty"`
+	UpdatedAt      time.Time `json:"updatedAt"`
 }
 
 type networkConfigResponse struct {
@@ -60,6 +63,36 @@ type networkConfigResponse struct {
 	TimeoutSeconds int    `json:"timeoutSeconds"`
 	MaxConcurrency int    `json:"maxConcurrency"`
 	EnableAutoScan bool   `json:"enableAutoScan"`
+}
+
+func managedDeviceLogID(device *ManagedDevice) string {
+	if device == nil {
+		return "unknown"
+	}
+	if strings.TrimSpace(device.ID) != "" {
+		return device.ID
+	}
+	return firstNonEmpty(device.Name, device.IP, "unknown")
+}
+
+func (s *Server) saveDeviceOperationLog(ctx context.Context, deviceID, operation, level, message string) {
+	if strings.TrimSpace(deviceID) == "" {
+		deviceID = "unknown"
+	}
+	if strings.TrimSpace(level) == "" {
+		level = "info"
+	}
+	if strings.TrimSpace(message) == "" {
+		message = "OK"
+	}
+	if err := s.Store.SaveDeviceLog(ctx, &store.DeviceLog{
+		DeviceID:     deviceID,
+		Operation:    operation,
+		ErrorMessage: message,
+		Level:        level,
+	}); err != nil {
+		log.Warn().Err(err).Str("deviceId", deviceID).Str("operation", operation).Msg("Failed to persist device operation log")
+	}
 }
 
 type discoveryResult struct {
@@ -128,6 +161,7 @@ func (s *Server) handleCreateManagedDevice(w http.ResponseWriter, r *http.Reques
 	req.Username = strings.TrimSpace(req.Username)
 	req.Port = normalizedDevicePort(req.Port)
 	req.Source = firstNonEmpty(req.Source, "manual")
+	req.TimezoneOffset = firstNonEmpty(req.TimezoneOffset, "+08:00")
 	req.UpdatedAt = time.Now()
 
 	if req.IsDefault || len(devices) == 0 {
@@ -186,6 +220,7 @@ func (s *Server) handleUpdateManagedDevice(w http.ResponseWriter, r *http.Reques
 	current.Model = strings.TrimSpace(req.Model)
 	current.Serial = strings.TrimSpace(req.Serial)
 	current.Source = firstNonEmpty(req.Source, current.Source, "manual")
+	current.TimezoneOffset = firstNonEmpty(req.TimezoneOffset, current.TimezoneOffset, "+08:00")
 	current.UpdatedAt = time.Now()
 	if req.Password != "" {
 		current.Password = req.Password
@@ -426,7 +461,7 @@ func (s *Server) handleUpdateNetworkConfig(w http.ResponseWriter, r *http.Reques
 		config.ConfigKeyNetworkDiscoveryRange:          req.Range,
 		config.ConfigKeyNetworkDiscoveryTimeout:        strconv.Itoa(req.TimeoutSeconds),
 		config.ConfigKeyNetworkDiscoveryMaxConcurrency: strconv.Itoa(req.MaxConcurrency),
-		config.ConfigKeyNetworkDiscoveryEnableAutoScan:  strconv.FormatBool(req.EnableAutoScan),
+		config.ConfigKeyNetworkDiscoveryEnableAutoScan: strconv.FormatBool(req.EnableAutoScan),
 	}
 
 	if err := s.Store.SetMultipleConfigValues(r.Context(), updates); err != nil {
@@ -469,34 +504,7 @@ func (s *Server) handleSyncOneEmployeeToDevice(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// 1. Resolve the target device
-	devices, err := s.loadManagedDevices(ctx)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "Failed to load devices")
-		return
-	}
-
-	var target *ManagedDevice
-	if deviceID != "" && deviceID != "default" {
-		idx := indexManagedDevice(devices, deviceID)
-		if idx >= 0 {
-			target = &devices[idx]
-		}
-	} else {
-		for i := range devices {
-			if devices[i].IsDefault {
-				target = &devices[i]
-				break
-			}
-		}
-	}
-
-	if target == nil {
-		writeError(w, http.StatusNotFound, "Device not found or no default device configured")
-		return
-	}
-
-	// 2. Look up the employee
+	// 1. Look up the employee
 	emp, err := s.Store.GetEmployeeByNo(ctx, employeeNo)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to fetch employee %q", employeeNo))
@@ -507,22 +515,62 @@ func (s *Server) handleSyncOneEmployeeToDevice(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// 3. Push to device
+	if deviceID == "" || deviceID == "default" || deviceID == "all" {
+		summary := s.syncEmployeeToAllDevices(ctx, emp, false, "PushEmployee")
+		if summary.DevicesTotal == 0 {
+			writeError(w, http.StatusServiceUnavailable, "No hay dispositivos configurados")
+			return
+		}
+		if summary.DevicesSuccess == 0 {
+			writeError(w, http.StatusBadGateway, "No se pudo registrar el empleado en los dispositivos configurados")
+			return
+		}
+
+		emp.Status = "Active"
+		s.Store.UpdateEmployee(ctx, emp)
+
+		writeJSON(w, http.StatusOK, map[string]interface{}{
+			"message":    fmt.Sprintf("Empleado %s %s registrado en %d dispositivo(s)", emp.FirstName, emp.LastName, summary.DevicesSuccess),
+			"employeeNo": emp.EmployeeNo,
+			"sync":       summary,
+		})
+		return
+	}
+
+	// 2. Resolve a specific target device
+	devices, err := s.loadManagedDevices(ctx)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to load devices")
+		return
+	}
+
+	idx := indexManagedDevice(devices, deviceID)
+	if idx < 0 {
+		writeError(w, http.StatusNotFound, "Device not found")
+		return
+	}
+	target := &devices[idx]
+
 	client := hikvision.NewClient(target.IP, target.Port, target.Username, target.Password)
 	if err := client.CreateUser(ctx, emp); err != nil {
 		s.logToFile(fmt.Sprintf("ERROR: Enviar empleado - Dispositivo: %s, Empleado: %s, Error: %v", target.IP, emp.EmployeeNo, err))
+		s.saveDeviceOperationLog(ctx, managedDeviceLogID(target), "PushEmployee", "error", fmt.Sprintf("Empleado %s: %v", emp.EmployeeNo, err))
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to register employee on device: %v", err))
 		return
 	}
 
+	photoSync := s.syncEmployeePhotoWithDevice(ctx, client, emp, target.ID, false)
+
 	// Update local DB status to reflect success
 	emp.Status = "Active"
 	s.Store.UpdateEmployee(ctx, emp)
+	s.saveDeviceOperationLog(ctx, managedDeviceLogID(target), "PushEmployee", "info", fmt.Sprintf("Empleado %s enviado. Foto: %s", emp.EmployeeNo, photoSync))
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"message":    fmt.Sprintf("Empleado %s %s registrado en %s", emp.FirstName, emp.LastName, target.Name),
 		"employeeNo": emp.EmployeeNo,
 		"device":     target.IP,
+		"photoSync":  photoSync,
 	})
 }
 
@@ -539,34 +587,7 @@ func (s *Server) handleRevokeEmployeeFromDevice(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	// 1. Resolve the target device
-	devices, err := s.loadManagedDevices(ctx)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "Failed to load devices")
-		return
-	}
-
-	var target *ManagedDevice
-	if deviceID != "" && deviceID != "default" {
-		idx := indexManagedDevice(devices, deviceID)
-		if idx >= 0 {
-			target = &devices[idx]
-		}
-	} else {
-		for i := range devices {
-			if devices[i].IsDefault {
-				target = &devices[i]
-				break
-			}
-		}
-	}
-
-	if target == nil {
-		writeError(w, http.StatusNotFound, "Device not found or no default device configured")
-		return
-	}
-
-	// 2. Verify the employee exists in DB (just for a good error message)
+	// 1. Verify the employee exists in DB (just for a good error message)
 	emp, err := s.Store.GetEmployeeByNo(ctx, employeeNo)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to fetch employee %q", employeeNo))
@@ -577,23 +598,70 @@ func (s *Server) handleRevokeEmployeeFromDevice(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	// 3. Remove from device only
+	if deviceID == "" || deviceID == "default" || deviceID == "all" {
+		devices, err := s.loadSyncDevices(ctx)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "Failed to load devices")
+			return
+		}
+		if len(devices) == 0 {
+			writeError(w, http.StatusServiceUnavailable, "No hay dispositivos configurados")
+			return
+		}
+
+		success := 0
+		var errs []string
+		for _, device := range devices {
+			client := hikvision.NewClient(device.IP, device.Port, device.Username, device.Password)
+			if err := client.DeleteUser(ctx, employeeNo); err != nil {
+				errs = append(errs, fmt.Sprintf("%s: %v", firstNonEmpty(device.Name, device.IP), err))
+				s.saveDeviceOperationLog(ctx, managedDeviceLogID(&device), "RevokeEmployee", "error", fmt.Sprintf("Empleado %s: %v", employeeNo, err))
+				continue
+			}
+			success++
+			s.saveDeviceOperationLog(ctx, managedDeviceLogID(&device), "RevokeEmployee", "info", fmt.Sprintf("Empleado %s revocado correctamente", employeeNo))
+		}
+
+		if success == 0 {
+			writeError(w, http.StatusBadGateway, "No se pudo revocar el empleado en los dispositivos configurados")
+			return
+		}
+
+		emp.Status = "Inactive"
+		s.Store.UpdateEmployee(ctx, emp)
+		writeJSON(w, http.StatusOK, map[string]interface{}{
+			"message":    fmt.Sprintf("Acceso de %s %s revocado en %d dispositivo(s)", emp.FirstName, emp.LastName, success),
+			"employeeNo": emp.EmployeeNo,
+			"errors":     errs,
+		})
+		return
+	}
+
+	// 2. Resolve the target device
+	devices, err := s.loadManagedDevices(ctx)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to load devices")
+		return
+	}
+	idx := indexManagedDevice(devices, deviceID)
+	if idx < 0 {
+		writeError(w, http.StatusNotFound, "Device not found")
+		return
+	}
+	target := &devices[idx]
+
 	client := hikvision.NewClient(target.IP, target.Port, target.Username, target.Password)
 	if err := client.DeleteUser(ctx, employeeNo); err != nil {
 		s.logToFile(fmt.Sprintf("ERROR: Revocar acceso - Dispositivo: %s, Empleado: %s, Error: %v", target.IP, employeeNo, err))
+		s.saveDeviceOperationLog(ctx, managedDeviceLogID(target), "RevokeEmployee", "error", fmt.Sprintf("Empleado %s: %v", employeeNo, err))
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to revoke employee from device: %v", err))
 		return
 	}
 
-	// Update local DB status to reflect success
 	emp.Status = "Inactive"
 	s.Store.UpdateEmployee(ctx, emp)
 
-	s.Store.SaveDeviceLog(ctx, &store.DeviceLog{
-		DeviceID:  target.ID,
-		Operation: "RevokeEmployee",
-		Level:     "info",
-	})
+	s.saveDeviceOperationLog(ctx, managedDeviceLogID(target), "RevokeEmployee", "info", fmt.Sprintf("Empleado %s revocado correctamente", employeeNo))
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"message":    fmt.Sprintf("Acceso de %s %s revocado en %s", emp.FirstName, emp.LastName, target.Name),
@@ -615,11 +683,16 @@ func (s *Server) handleSyncDeviceTime(w http.ResponseWriter, r *http.Request) {
 	var target *ManagedDevice
 	if deviceID == "default" {
 		for i := range devices {
-			if devices[i].IsDefault { target = &devices[i]; break }
+			if devices[i].IsDefault {
+				target = &devices[i]
+				break
+			}
 		}
 	} else {
 		idx := indexManagedDevice(devices, deviceID)
-		if idx >= 0 { target = &devices[idx] }
+		if idx >= 0 {
+			target = &devices[idx]
+		}
 	}
 
 	if target == nil {
@@ -630,15 +703,12 @@ func (s *Server) handleSyncDeviceTime(w http.ResponseWriter, r *http.Request) {
 	client := hikvision.NewClient(target.IP, target.Port, target.Username, target.Password)
 	if err := client.SyncTime(ctx, time.Now()); err != nil {
 		s.logToFile(fmt.Sprintf("ERROR: Sincronizar hora - Dispositivo: %s, Error: %v", target.IP, err))
+		s.saveDeviceOperationLog(ctx, managedDeviceLogID(target), "SyncTime", "error", err.Error())
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to sync device time: %v", err))
 		return
 	}
 
-	s.Store.SaveDeviceLog(ctx, &store.DeviceLog{
-		DeviceID:  target.ID,
-		Operation: "SyncTime",
-		Level:     "info",
-	})
+	s.saveDeviceOperationLog(ctx, managedDeviceLogID(target), "SyncTime", "info", fmt.Sprintf("Hora sincronizada en %s", target.Name))
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"message": fmt.Sprintf("Hora sincronizada correctamente en %s", target.Name),
@@ -650,35 +720,7 @@ func (s *Server) handleSyncEmployeesToDevice(w http.ResponseWriter, r *http.Requ
 	id := chi.URLParam(r, "id")
 	ctx := r.Context()
 
-	// 1. Get the device
-	devices, err := s.loadManagedDevices(ctx)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "Failed to load devices")
-		return
-	}
-
-	var target *ManagedDevice
-	if id != "" && id != "default" {
-		idx := indexManagedDevice(devices, id)
-		if idx >= 0 {
-			target = &devices[idx]
-		}
-	} else {
-		// Find default
-		for i := range devices {
-			if devices[i].IsDefault {
-				target = &devices[i]
-				break
-			}
-		}
-	}
-
-	if target == nil {
-		writeError(w, http.StatusNotFound, "Device not found or no default device set")
-		return
-	}
-
-	// 2. Get all employees
+	// 1. Get all employees
 	emps, err := s.Store.ListEmployees(ctx)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Failed to load employees")
@@ -701,32 +743,146 @@ func (s *Server) handleSyncEmployeesToDevice(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// 3. Sync to device
+	// 2. Sync to all devices when using the default/global action.
+	if id == "" || id == "default" || id == "all" {
+		devices, err := s.loadSyncDevices(ctx)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "Failed to load devices")
+			return
+		}
+		if len(devices) == 0 {
+			writeError(w, http.StatusServiceUnavailable, "No hay dispositivos configurados")
+			return
+		}
+
+		result := map[string]interface{}{
+			"devices":     len(devices),
+			"employees":   len(activeEmps),
+			"byEmployee":  []employeeSyncSummary{},
+			"photoTotals": map[string]int{},
+		}
+
+		successEmployees := 0
+		allErrors := []string{}
+		byEmployee := make([]employeeSyncSummary, 0, len(activeEmps))
+		photoTotals := map[string]int{}
+
+		for _, emp := range activeEmps {
+			summary := s.syncEmployeeToAllDevices(ctx, emp, false, "Sync")
+			byEmployee = append(byEmployee, summary)
+			if summary.DevicesSuccess > 0 {
+				successEmployees++
+			}
+			allErrors = append(allErrors, summary.Errors...)
+			for key, value := range summary.PhotoSync {
+				photoTotals[key] += value
+			}
+		}
+
+		result["byEmployee"] = byEmployee
+		result["photoTotals"] = photoTotals
+		result["errors"] = allErrors
+
+		writeJSON(w, http.StatusOK, map[string]interface{}{
+			"message":        fmt.Sprintf("Sincronizados %d de %d empleados con %d dispositivo(s)", successEmployees, len(activeEmps), len(devices)),
+			"count":          successEmployees,
+			"devicesSynced":  len(devices),
+			"employeesTotal": len(activeEmps),
+			"photoSync":      photoTotals,
+			"errors":         allErrors,
+		})
+		return
+	}
+
+	// 3. Sync to one specific device
+	devices, err := s.loadManagedDevices(ctx)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to load devices")
+		return
+	}
+	idx := indexManagedDevice(devices, id)
+	if idx < 0 {
+		writeError(w, http.StatusNotFound, "Device not found")
+		return
+	}
+	target := &devices[idx]
+
 	client := hikvision.NewClient(target.IP, target.Port, target.Username, target.Password)
-	
-	// Prepare batch (The ISAPI Record endpoint handles multiple users in One XML if structured correctly, 
-	// but our current CreateUser in users.go takes one. We have a private upsertUsers that takes variadic.)
-	// I'll use the private upsertUsers if I make it public or just call CreateUser in a loop (less efficient but safer).
-	// Actually, I'll update users.go to export UpsertUsers for batching.
-	
-	// For now, let's use the exported CreateUser (which I'll update to handle batching or use a loop).
-	// Wait, I wrote users.go earlier, let me check it.
-	
-	// CreateUser calls upsertUsers(ctx, emp)
-	// I should probably export CreateUsers(ctx, emps []*employees.Employee)
-	
 	err = client.CreateUsers(ctx, activeEmps)
 	if err != nil {
 		s.logToFile(fmt.Sprintf("ERROR: Sincronización masiva - Dispositivo: %s, Error: %v", target.IP, err))
+		s.saveDeviceOperationLog(ctx, managedDeviceLogID(target), "Sync", "error", err.Error())
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("Sync failed: %v", err))
 		return
 	}
 
+	photoStats := map[string]int{}
+	for _, emp := range activeEmps {
+		photoStats[s.syncEmployeePhotoWithDevice(ctx, client, emp, target.ID, false)]++
+	}
+	s.saveDeviceOperationLog(ctx, managedDeviceLogID(target), "Sync", "info", fmt.Sprintf("Sincronizados %d empleados. Fotos: %+v", len(activeEmps), photoStats))
+
 	writeJSON(w, http.StatusOK, map[string]interface{}{
-		"message": "Successfully synced employees to device",
-		"count":   len(activeEmps),
-		"device":  target.IP,
+		"message":   "Successfully synced employees to device",
+		"count":     len(activeEmps),
+		"device":    target.IP,
+		"photoSync": photoStats,
 	})
+}
+
+func (s *Server) syncEmployeePhotoWithDevice(ctx context.Context, client *hikvision.Client, emp *employees.Employee, deviceID string, photoRemoved bool) string {
+	if emp == nil || emp.EmployeeNo == "" {
+		return "missing"
+	}
+
+	if photoRemoved {
+		if err := client.DeleteFace(ctx, emp.EmployeeNo); err != nil && !strings.Contains(strings.ToLower(err.Error()), "not found") {
+			if recreated, recreateErr := s.recreateUserWithoutPhoto(ctx, client, emp.EmployeeNo); recreateErr == nil && recreated {
+				return "recreated_without_photo"
+			}
+			log.Warn().Err(err).Str("employeeNo", emp.EmployeeNo).Str("device", deviceID).Msg("Failed to delete employee photo from Hikvision during sync")
+			return "delete_failed"
+		}
+		return "removed"
+	}
+
+	photoData := emp.PhotoData
+	if len(photoData) == 0 && emp.PhotoURL != "" {
+		photoPath := filepath.Join("web", filepath.FromSlash(strings.TrimPrefix(emp.PhotoURL, "/")))
+		fileData, err := os.ReadFile(photoPath)
+		if err != nil {
+			log.Warn().Err(err).Str("employeeNo", emp.EmployeeNo).Str("path", photoPath).Msg("Failed to read local employee photo during sync")
+		} else {
+			photoData = fileData
+			emp.PhotoData = fileData
+			if err := s.Store.UpdateEmployeePhoto(ctx, emp.EmployeeNo, fileData); err != nil {
+				log.Warn().Err(err).Str("employeeNo", emp.EmployeeNo).Msg("Failed to backfill photo_data from local file during sync")
+			}
+		}
+	}
+
+	if len(photoData) > 0 {
+		if err := client.UploadPhotoToHikvision(ctx, emp.EmployeeNo, photoData); err != nil {
+			log.Warn().Err(err).Str("employeeNo", emp.EmployeeNo).Str("device", deviceID).Msg("Failed to upload local photo to Hikvision during sync")
+			return "failed"
+		}
+		return "uploaded"
+	}
+
+	if err := client.DeleteFace(ctx, emp.EmployeeNo); err != nil && !strings.Contains(strings.ToLower(err.Error()), "not found") {
+		log.Warn().Err(err).Str("employeeNo", emp.EmployeeNo).Str("device", deviceID).Msg("Failed to delete remote photo while enforcing project state")
+		return "delete_failed"
+	}
+	return "removed"
+}
+
+func (s *Server) handleImportEmployeesFromDevices(w http.ResponseWriter, r *http.Request) {
+	result, err := s.importEmployeesFromDevices(r.Context())
+	if err != nil {
+		writeError(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (s *Server) loadNetworkConfig(ctx context.Context) (networkConfigResponse, error) {
@@ -751,7 +907,7 @@ func (s *Server) loadNetworkConfig(ctx context.Context) (networkConfigResponse, 
 		Range:          getVal(config.ConfigKeyNetworkDiscoveryRange),
 		TimeoutSeconds: timeout,
 		MaxConcurrency: concurrency,
-		EnableAutoScan:  autoScan,
+		EnableAutoScan: autoScan,
 	}, nil
 }
 
@@ -871,14 +1027,19 @@ func (s *Server) handleReadRecentEvents(w http.ResponseWriter, r *http.Request) 
 	totalEvents := 0
 	for _, d := range devices {
 		client := hikvision.NewClient(d.IP, d.Port, d.Username, d.Password)
+		client.TimezoneOffset = d.TimezoneOffset
 		ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
-		
+
 		events, err := client.GetEventsInRange(ctx, start, end)
 		cancel()
 		if err != nil {
 			log.Warn().Str("device", d.IP).Err(err).Msg("Failed to read events from device")
+			s.saveDeviceOperationLog(r.Context(), managedDeviceLogID(&d), "ReadEvents", "error", err.Error())
 			continue
 		}
+		s.saveDeviceOperationLog(r.Context(), managedDeviceLogID(&d), "ReadEvents", "info", fmt.Sprintf("Lectura completada. Eventos obtenidos: %d", len(events)))
+
+		log.Info().Str("device", d.IP).Int("found", len(events)).Msg("Syncing events from device")
 
 		for _, event := range events {
 			// Save to database
@@ -888,7 +1049,12 @@ func (s *Server) handleReadRecentEvents(w http.ResponseWriter, r *http.Request) 
 				Timestamp:  event.Timestamp,
 				Type:       event.EventType,
 			}
-			s.Store.SaveEvent(r.Context(), storeEvent)
+			err := s.Store.SaveEvent(r.Context(), storeEvent)
+			if err != nil {
+				log.Error().Err(err).Str("employee", event.EmployeeNo).Msg("Failed to save event to DB")
+			} else {
+				totalEvents++
+			}
 
 			// Get employee name for broadcast
 			emp, _ := s.Store.GetEmployeeByNo(r.Context(), event.EmployeeNo)
@@ -899,13 +1065,12 @@ func (s *Server) handleReadRecentEvents(w http.ResponseWriter, r *http.Request) 
 
 			// Broadcast to WebSocket clients
 			s.Hub.BroadcastAttendanceEvent(event.EmployeeNo, employeeName, event.DeviceID, event.Timestamp)
-			totalEvents++
 		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status": "success",
+		"status":     "success",
 		"eventsRead": totalEvents,
 	})
 }
@@ -936,17 +1101,18 @@ func toManagedDeviceResponses(devices []ManagedDevice) []managedDeviceResponse {
 
 func toManagedDeviceResponse(device ManagedDevice) managedDeviceResponse {
 	return managedDeviceResponse{
-		ID:          device.ID,
-		Name:        device.Name,
-		IP:          device.IP,
-		Username:    device.Username,
-		Port:        device.Port,
-		Model:       device.Model,
-		Serial:      device.Serial,
-		Source:      device.Source,
-		IsDefault:   device.IsDefault,
-		HasPassword: device.Password != "",
-		UpdatedAt:   device.UpdatedAt,
+		ID:             device.ID,
+		Name:           device.Name,
+		IP:             device.IP,
+		Username:       device.Username,
+		Port:           device.Port,
+		Model:          device.Model,
+		Serial:         device.Serial,
+		Source:         device.Source,
+		IsDefault:      device.IsDefault,
+		HasPassword:    device.Password != "",
+		TimezoneOffset: device.TimezoneOffset,
+		UpdatedAt:      device.UpdatedAt,
 	}
 }
 func (s *Server) logToFile(message string) {
@@ -961,4 +1127,56 @@ func (s *Server) logToFile(message string) {
 	if _, err := f.WriteString(fmt.Sprintf("%s\t%s\n", timestamp, message)); err != nil {
 		log.Error().Err(err).Msg("Could not write to error_logs.txt")
 	}
+}
+
+func (s *Server) handleSetupDeviceAlarmHost(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		http.Error(w, "Device ID is required", http.StatusBadRequest)
+		return
+	}
+
+	devices, err := s.loadManagedDevices(r.Context())
+	if err != nil {
+		http.Error(w, "Failed to load devices", http.StatusInternalServerError)
+		return
+	}
+
+	var target *ManagedDevice
+	for _, d := range devices {
+		if d.ID == id {
+			target = &d
+			break
+		}
+	}
+
+	if target == nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+
+	// We need the server's IP. In a real scenario, this would be in config.
+	// For now, we'll try to determine it or use a default.
+	serverIP := s.Config.ServerIP
+	if serverIP == "" {
+		serverIP = "192.168.1.100" // Default/Example
+	}
+	serverPort := s.Config.Port
+	if serverPort == 0 {
+		serverPort = 8080
+	}
+
+	client := hikvision.NewClient(target.IP, target.Port, target.Username, target.Password)
+	err = client.SetupAlarmHost(r.Context(), 1, serverIP, serverPort, "/api/callback/hikvision")
+	if err != nil {
+		s.saveDeviceOperationLog(r.Context(), target.ID, "setup_alarm_host", "error", err.Error())
+		http.Error(w, fmt.Sprintf("Failed to setup alarm host: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	s.saveDeviceOperationLog(r.Context(), target.ID, "setup_alarm_host", "info", "Successfully configured alarm host")
+	s.LogAudit(r.Context(), r, "SETUP_ALARM_HOST", target.IP, nil)
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }

@@ -4,8 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"ponches/internal/employees"
+	"strings"
+
 	"github.com/rs/zerolog/log"
+	"ponches/internal/employees"
 
 	_ "modernc.org/sqlite"
 )
@@ -20,12 +22,34 @@ func NewSQLiteStore(dbPath string) (*SQLiteStore, error) {
 		return nil, fmt.Errorf("open sqlite: %w", err)
 	}
 
+	// SQLite is embedded and sensitive to concurrent writers.
+	// Keep one shared connection and enable WAL/busy timeout to reduce SQLITE_BUSY errors.
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
+
 	s := &SQLiteStore{db: db}
+	if err := s.configureConnection(); err != nil {
+		return nil, fmt.Errorf("configure sqlite: %w", err)
+	}
 	if err := s.initSchema(); err != nil {
 		return nil, fmt.Errorf("init schema: %w", err)
 	}
 
 	return s, nil
+}
+
+func (s *SQLiteStore) configureConnection() error {
+	pragmas := []string{
+		`PRAGMA journal_mode = WAL;`,
+		`PRAGMA busy_timeout = 5000;`,
+		`PRAGMA synchronous = NORMAL;`,
+	}
+	for _, pragma := range pragmas {
+		if _, err := s.db.Exec(pragma); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *SQLiteStore) initSchema() error {
@@ -77,6 +101,10 @@ func (s *SQLiteStore) initSchema() error {
 			status TEXT DEFAULT 'Active',
 			base_salary REAL DEFAULT 0,
 			face_id TEXT,
+			photo_url TEXT,
+			photo_data BLOB,
+			fleet_no TEXT,
+			personal_no TEXT,
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 			FOREIGN KEY (department_id) REFERENCES departments(id),
@@ -91,6 +119,7 @@ func (s *SQLiteStore) initSchema() error {
 			raw_data TEXT,
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		);`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_attendance_unique ON attendance_events (device_id, employee_no, timestamp, type);`,
 		`CREATE TABLE IF NOT EXISTS travel_allowance_rates (
 			id TEXT PRIMARY KEY,
 			name TEXT NOT NULL,
@@ -156,6 +185,25 @@ func (s *SQLiteStore) initSchema() error {
 			timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_device_logs_device ON device_logs(device_id);`,
+		`CREATE TABLE IF NOT EXISTS holidays (
+			id TEXT PRIMARY KEY,
+			date DATETIME NOT NULL,
+			name TEXT NOT NULL,
+			description TEXT DEFAULT '',
+			recurring INTEGER DEFAULT 0,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_holidays_date ON holidays(date);`,
+		`CREATE TABLE IF NOT EXISTS audit_logs (
+			id TEXT PRIMARY KEY,
+			user_id TEXT,
+			action TEXT NOT NULL,
+			resource TEXT,
+			details TEXT,
+			ip_address TEXT,
+			username TEXT,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		);`,
 	}
 
 	for _, q := range queries {
@@ -173,6 +221,18 @@ func (s *SQLiteStore) initSchema() error {
 		return err
 	}
 	if err := s.ensureColumn("employees", "personal_no", "TEXT DEFAULT ''"); err != nil {
+		return err
+	}
+	if err := s.ensureColumn("employees", "photo_url", "TEXT DEFAULT ''"); err != nil {
+		return err
+	}
+	if err := s.ensureColumn("employees", "photo_data", "BLOB"); err != nil {
+		return err
+	}
+	if err := s.ensureColumn("employees", "card_no", "TEXT DEFAULT ''"); err != nil {
+		return err
+	}
+	if err := s.ensureColumn("employees", "updated_at", "DATETIME"); err != nil {
 		return err
 	}
 	if err := s.ensureColumn("travel_allowances", "group_id", "TEXT"); err != nil {
@@ -198,19 +258,20 @@ func (s *SQLiteStore) ensureColumn(table, column, definition string) error {
 
 func (s *SQLiteStore) CreateEmployee(ctx context.Context, e *employees.Employee) error {
 	_, err := s.db.ExecContext(ctx,
-		`INSERT INTO employees (id, employee_no, first_name, last_name, id_number, gender, birth_date,
-			phone, email, department_id, position_id, hire_date, status, base_salary, face_id, fleet_no, personal_no)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		e.ID, e.EmployeeNo, e.FirstName, e.LastName, e.IDNumber, e.Gender, e.BirthDate,
-		e.Phone, e.Email, e.DepartmentID, e.PositionID, e.HireDate, e.Status, e.BaseSalary, e.FaceID,
+		`INSERT INTO employees (id, employee_no, card_no, first_name, last_name, id_number, gender, birth_date,
+			phone, email, department_id, position_id, hire_date, status, base_salary, face_id, photo_url, fleet_no, personal_no)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		e.ID, e.EmployeeNo, e.CardNo, e.FirstName, e.LastName, e.IDNumber, e.Gender, e.BirthDate,
+		e.Phone, e.Email, e.DepartmentID, e.PositionID, e.HireDate, e.Status, e.BaseSalary, e.FaceID, e.PhotoURL,
 		e.FleetNo, e.PersonalNo)
 	return err
 }
 
 func (s *SQLiteStore) ListEmployees(ctx context.Context) ([]*employees.Employee, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, employee_no, first_name, last_name, id_number, gender, birth_date,
+		SELECT id, employee_no, card_no, first_name, last_name, id_number, gender, birth_date,
 		       phone, email, department_id, position_id, hire_date, status, base_salary, face_id,
+		       COALESCE(photo_url,''), photo_data,
 		       COALESCE(fleet_no,''), COALESCE(personal_no,'')
 		FROM employees
 		ORDER BY first_name, last_name`)
@@ -223,14 +284,20 @@ func (s *SQLiteStore) ListEmployees(ctx context.Context) ([]*employees.Employee,
 	for rows.Next() {
 		e := &employees.Employee{}
 		var birthDate, hireDate sql.NullTime
-		var idNumber, gender, phone, email, faceID sql.NullString
+		var idNumber, gender, phone, email, faceID, deptID, posID sql.NullString
 		var baseSalary sql.NullFloat64
 
-		err := rows.Scan(&e.ID, &e.EmployeeNo, &e.FirstName, &e.LastName, &idNumber, &gender,
-			&birthDate, &phone, &email, &e.DepartmentID, &e.PositionID, &hireDate,
-			&e.Status, &baseSalary, &faceID, &e.FleetNo, &e.PersonalNo)
+		err := rows.Scan(&e.ID, &e.EmployeeNo, &e.CardNo, &e.FirstName, &e.LastName, &idNumber, &gender,
+			&birthDate, &phone, &email, &deptID, &posID, &hireDate,
+			&e.Status, &baseSalary, &faceID, &e.PhotoURL, &e.PhotoData, &e.FleetNo, &e.PersonalNo)
 		if err != nil {
 			return nil, err
+		}
+		if deptID.Valid {
+			e.DepartmentID = deptID.String
+		}
+		if posID.Valid {
+			e.PositionID = posID.String
 		}
 		if birthDate.Valid {
 			e.BirthDate = birthDate.Time
@@ -261,12 +328,13 @@ func (s *SQLiteStore) ListEmployees(ctx context.Context) ([]*employees.Employee,
 	return list, nil
 }
 
-// SaveEvent saves an attendance event to the database
+// SaveEvent saves an attendance event to the database.
+// It ignores duplicates based on the unique index (device_id, employee_no, timestamp, type).
 func (s *SQLiteStore) SaveEvent(ctx context.Context, event *AttendanceEvent) error {
-	query := `INSERT INTO attendance_events (device_id, employee_no, timestamp, type) VALUES (?, ?, ?, ?)`
+	query := `INSERT OR IGNORE INTO attendance_events (device_id, employee_no, timestamp, type) VALUES (?, ?, ?, ?)`
 	_, err := s.db.ExecContext(ctx, query, event.DeviceID, event.EmployeeNo, event.Timestamp, event.Type)
 	if err == nil {
-		log.Info().Str("employee", event.EmployeeNo).Str("time", event.Timestamp.Format("15:04:05")).Msg("Attendance event saved to database")
+		log.Debug().Str("employee", event.EmployeeNo).Str("time", event.Timestamp.Format("15:04:05")).Msg("Attendance event processed")
 	}
 	return err
 }
@@ -274,22 +342,29 @@ func (s *SQLiteStore) SaveEvent(ctx context.Context, event *AttendanceEvent) err
 func (s *SQLiteStore) GetEmployee(ctx context.Context, id string) (*employees.Employee, error) {
 	e := &employees.Employee{}
 	var birthDate, hireDate sql.NullTime
-	var idNumber, gender, phone, email, faceID sql.NullString
+	var idNumber, gender, phone, email, faceID, deptID, posID sql.NullString
 	var baseSalary sql.NullFloat64
 
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, employee_no, first_name, last_name, id_number, gender, birth_date,
+		`SELECT id, employee_no, card_no, first_name, last_name, id_number, gender, birth_date,
 		        phone, email, department_id, position_id, hire_date, status, base_salary, face_id,
+		        COALESCE(photo_url,''), photo_data,
 		        COALESCE(fleet_no,''), COALESCE(personal_no,'')
 		 FROM employees WHERE id = ?`, id).
-		Scan(&e.ID, &e.EmployeeNo, &e.FirstName, &e.LastName, &idNumber, &gender,
-			&birthDate, &phone, &email, &e.DepartmentID, &e.PositionID, &hireDate,
-			&e.Status, &baseSalary, &faceID, &e.FleetNo, &e.PersonalNo)
+		Scan(&e.ID, &e.EmployeeNo, &e.CardNo, &e.FirstName, &e.LastName, &idNumber, &gender,
+			&birthDate, &phone, &email, &deptID, &posID, &hireDate,
+			&e.Status, &baseSalary, &faceID, &e.PhotoURL, &e.PhotoData, &e.FleetNo, &e.PersonalNo)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
+	}
+	if deptID.Valid {
+		e.DepartmentID = deptID.String
+	}
+	if posID.Valid {
+		e.PositionID = posID.String
 	}
 	if birthDate.Valid {
 		e.BirthDate = birthDate.Time
@@ -321,22 +396,28 @@ func (s *SQLiteStore) GetEmployee(ctx context.Context, id string) (*employees.Em
 func (s *SQLiteStore) GetEmployeeByNo(ctx context.Context, employeeNo string) (*employees.Employee, error) {
 	e := &employees.Employee{}
 	var birthDate, hireDate sql.NullTime
-	var idNumber, gender, phone, email, faceID sql.NullString
+	var idNumber, gender, phone, email, faceID, deptID, posID sql.NullString
 	var baseSalary sql.NullFloat64
 
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, employee_no, first_name, last_name, id_number, gender, birth_date,
+		`SELECT id, employee_no, card_no, first_name, last_name, id_number, gender, birth_date,
 		        phone, email, department_id, position_id, hire_date, status, base_salary, face_id,
-		        COALESCE(fleet_no,''), COALESCE(personal_no,'')
+		        COALESCE(photo_url,''), photo_data, COALESCE(fleet_no,''), COALESCE(personal_no,'')
 		 FROM employees WHERE employee_no = ?`, employeeNo).
-		Scan(&e.ID, &e.EmployeeNo, &e.FirstName, &e.LastName, &idNumber, &gender,
-			&birthDate, &phone, &email, &e.DepartmentID, &e.PositionID, &hireDate,
-			&e.Status, &baseSalary, &faceID, &e.FleetNo, &e.PersonalNo)
+		Scan(&e.ID, &e.EmployeeNo, &e.CardNo, &e.FirstName, &e.LastName, &idNumber, &gender,
+			&birthDate, &phone, &email, &deptID, &posID, &hireDate,
+			&e.Status, &baseSalary, &faceID, &e.PhotoURL, &e.PhotoData, &e.FleetNo, &e.PersonalNo)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
+	}
+	if deptID.Valid {
+		e.DepartmentID = deptID.String
+	}
+	if posID.Valid {
+		e.PositionID = posID.String
 	}
 	if birthDate.Valid {
 		e.BirthDate = birthDate.Time
@@ -368,19 +449,75 @@ func (s *SQLiteStore) GetEmployeeByNo(ctx context.Context, employeeNo string) (*
 func (s *SQLiteStore) UpdateEmployee(ctx context.Context, e *employees.Employee) error {
 	result, err := s.db.ExecContext(ctx,
 		`UPDATE employees SET
-			employee_no = ?, first_name = ?, last_name = ?, id_number = ?, gender = ?, birth_date = ?,
+			employee_no = ?, card_no = ?, first_name = ?, last_name = ?, id_number = ?, gender = ?, birth_date = ?,
 			phone = ?, email = ?, department_id = ?, position_id = ?, hire_date = ?,
-			status = ?, base_salary = ?, face_id = ?, fleet_no = ?, personal_no = ?,
+			status = ?, base_salary = ?, face_id = ?, photo_url = ?, fleet_no = ?, personal_no = ?,
 			updated_at = CURRENT_TIMESTAMP
 		 WHERE id = ?`,
-		e.EmployeeNo, e.FirstName, e.LastName, e.IDNumber, e.Gender, e.BirthDate,
+		e.EmployeeNo, e.CardNo, e.FirstName, e.LastName, e.IDNumber, e.Gender, e.BirthDate,
 		e.Phone, e.Email, e.DepartmentID, e.PositionID, e.HireDate,
-		e.Status, e.BaseSalary, e.FaceID, e.FleetNo, e.PersonalNo, e.ID)
+		e.Status, e.BaseSalary, e.FaceID, e.PhotoURL, e.FleetNo, e.PersonalNo, e.ID)
 	if err != nil {
 		return err
 	}
 	rows, err := result.RowsAffected()
 	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (s *SQLiteStore) UpdateEmployeePhoto(ctx context.Context, employeeNo string, photoData []byte) error {
+	stmt, err := s.db.PrepareContext(ctx, `UPDATE employees SET photo_data = ?, updated_at = CURRENT_TIMESTAMP WHERE employee_no = ?`)
+	if err != nil && strings.Contains(err.Error(), "no such column: updated_at") {
+		stmt, err = s.db.PrepareContext(ctx, `UPDATE employees SET photo_data = ? WHERE employee_no = ?`)
+	}
+	if err != nil {
+		log.Error().Err(err).Str("employeeNo", employeeNo).Msg("Failed to prepare employee photo update")
+		return err
+	}
+	defer stmt.Close()
+
+	result, err := stmt.ExecContext(ctx, photoData, employeeNo)
+	if err != nil {
+		log.Error().Err(err).Str("employeeNo", employeeNo).Msg("Failed to update employee photo")
+		return err
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		log.Error().Err(err).Str("employeeNo", employeeNo).Msg("Failed to read employee photo update result")
+		return err
+	}
+	if rows == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (s *SQLiteStore) ClearEmployeePhoto(ctx context.Context, employeeNo string) error {
+	stmt, err := s.db.PrepareContext(ctx, `UPDATE employees SET photo_data = NULL, photo_url = '', face_id = '', updated_at = CURRENT_TIMESTAMP WHERE employee_no = ?`)
+	if err != nil && strings.Contains(err.Error(), "no such column: updated_at") {
+		stmt, err = s.db.PrepareContext(ctx, `UPDATE employees SET photo_data = NULL, photo_url = '', face_id = '' WHERE employee_no = ?`)
+	}
+	if err != nil {
+		log.Error().Err(err).Str("employeeNo", employeeNo).Msg("Failed to prepare employee photo clear")
+		return err
+	}
+	defer stmt.Close()
+
+	result, err := stmt.ExecContext(ctx, employeeNo)
+	if err != nil {
+		log.Error().Err(err).Str("employeeNo", employeeNo).Msg("Failed to clear employee photo")
+		return err
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		log.Error().Err(err).Str("employeeNo", employeeNo).Msg("Failed to read employee photo clear result")
 		return err
 	}
 	if rows == 0 {
@@ -430,9 +567,14 @@ func (s *SQLiteStore) ListDepartments(ctx context.Context) ([]*employees.Departm
 	var list []*employees.Department
 	for rows.Next() {
 		d := &employees.Department{}
-		if err := rows.Scan(&d.ID, &d.Name, &d.Description, &d.ParentID, &d.ManagerID, &d.ManagerName); err != nil {
+		var desc, parentID, managerID, managerName sql.NullString
+		if err := rows.Scan(&d.ID, &d.Name, &desc, &parentID, &managerID, &managerName); err != nil {
 			return nil, err
 		}
+		d.Description = desc.String
+		d.ParentID = parentID.String
+		d.ManagerID = managerID.String
+		d.ManagerName = managerName.String
 		list = append(list, d)
 	}
 	return list, nil
@@ -454,9 +596,13 @@ func (s *SQLiteStore) ListPositions(ctx context.Context) ([]*employees.Position,
 	var list []*employees.Position
 	for rows.Next() {
 		p := &employees.Position{}
-		if err := rows.Scan(&p.ID, &p.Name, &p.DepartmentID, &p.Level); err != nil {
+		var deptID sql.NullString
+		var level sql.NullInt64
+		if err := rows.Scan(&p.ID, &p.Name, &deptID, &level); err != nil {
 			return nil, err
 		}
+		p.DepartmentID = deptID.String
+		p.Level = int(level.Int64)
 		list = append(list, p)
 	}
 	return list, nil
@@ -570,10 +716,10 @@ func (s *SQLiteStore) DeletePosition(ctx context.Context, id string) error {
 
 func (s *SQLiteStore) UpsertEmployee(ctx context.Context, e *employees.Employee) error {
 	_, err := s.db.ExecContext(ctx,
-		`INSERT INTO employees (id, employee_no, first_name, last_name, email, department_id, position_id, status, base_salary, face_id)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT(id) DO UPDATE SET
-		 	employee_no = excluded.employee_no,
+		`INSERT INTO employees (id, employee_no, card_no, first_name, last_name, email, department_id, position_id, status, base_salary, face_id)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT(employee_no) DO UPDATE SET
+		 	card_no = excluded.card_no,
 		 	first_name = excluded.first_name,
 		 	last_name = excluded.last_name,
 		 	email = excluded.email,
@@ -583,7 +729,7 @@ func (s *SQLiteStore) UpsertEmployee(ctx context.Context, e *employees.Employee)
 		 	base_salary = excluded.base_salary,
 		 	face_id = excluded.face_id,
 		 	updated_at = CURRENT_TIMESTAMP`,
-		e.ID, e.EmployeeNo, e.FirstName, e.LastName, e.Email, e.DepartmentID, e.PositionID, e.Status, e.BaseSalary, e.FaceID)
+		e.ID, e.EmployeeNo, e.CardNo, e.FirstName, e.LastName, e.Email, e.DepartmentID, e.PositionID, e.Status, e.BaseSalary, e.FaceID)
 	return err
 }
 
@@ -614,9 +760,19 @@ func (s *SQLiteStore) GetEvents(ctx context.Context, filter EventFilter) ([]*Att
 	var list []*AttendanceEvent
 	for rows.Next() {
 		ev := &AttendanceEvent{}
-		if err := rows.Scan(&ev.ID, &ev.DeviceID, &ev.EmployeeNo, &ev.Timestamp, &ev.Type); err != nil {
+		var deviceID, eventType sql.NullString
+
+		if err := rows.Scan(&ev.ID, &deviceID, &ev.EmployeeNo, &ev.Timestamp, &eventType); err != nil {
 			return nil, err
 		}
+
+		if deviceID.Valid {
+			ev.DeviceID = deviceID.String
+		}
+		if eventType.Valid {
+			ev.Type = eventType.String
+		}
+
 		list = append(list, ev)
 	}
 	return list, nil
@@ -1018,4 +1174,134 @@ func (s *SQLiteStore) GetDeviceLogs(ctx context.Context, deviceID string, limit 
 		list = append(list, l)
 	}
 	return list, nil
+}
+
+// ==================== HOLIDAYS ====================
+
+func (s *SQLiteStore) CreateHoliday(ctx context.Context, h *employees.Holiday) error {
+	_, err := s.db.ExecContext(ctx,
+		`INSERT INTO holidays (id, date, name, description, recurring) VALUES (?, ?, ?, ?, ?)`,
+		h.ID, h.Date, h.Name, h.Description, h.Recurring)
+	return err
+}
+
+func (s *SQLiteStore) GetHoliday(ctx context.Context, id string) (*employees.Holiday, error) {
+	h := &employees.Holiday{}
+	err := s.db.QueryRowContext(ctx,
+		`SELECT id, date, name, description, recurring, created_at FROM holidays WHERE id = ?`, id).
+		Scan(&h.ID, &h.Date, &h.Name, &h.Description, &h.Recurring, &h.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return h, nil
+}
+
+func (s *SQLiteStore) ListHolidays(ctx context.Context) ([]*employees.Holiday, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT id, date, name, description, recurring, created_at FROM holidays ORDER BY date ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []*employees.Holiday
+	for rows.Next() {
+		h := &employees.Holiday{}
+		if err := rows.Scan(&h.ID, &h.Date, &h.Name, &h.Description, &h.Recurring, &h.CreatedAt); err != nil {
+			return nil, err
+		}
+		list = append(list, h)
+	}
+	return list, nil
+}
+
+func (s *SQLiteStore) UpdateHoliday(ctx context.Context, h *employees.Holiday) error {
+	result, err := s.db.ExecContext(ctx,
+		`UPDATE holidays SET date = ?, name = ?, description = ?, recurring = ? WHERE id = ?`,
+		h.Date, h.Name, h.Description, h.Recurring, h.ID)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (s *SQLiteStore) DeleteHoliday(ctx context.Context, id string) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM holidays WHERE id = ?`, id)
+	return err
+}
+
+func (s *SQLiteStore) IsHoliday(ctx context.Context, date time.Time) (bool, *employees.Holiday, error) {
+	// Check exact date
+	h := &employees.Holiday{}
+	err := s.db.QueryRowContext(ctx,
+		`SELECT id, date, name, description, recurring, created_at FROM holidays 
+		 WHERE date(date) = date(?) OR (recurring = 1 AND strftime('%m-%d', date) = strftime('%m-%d', ?))
+		 LIMIT 1`,
+		date, date).
+		Scan(&h.ID, &h.Date, &h.Name, &h.Description, &h.Recurring, &h.CreatedAt)
+
+	if err == sql.ErrNoRows {
+		return false, nil, nil
+	}
+	if err != nil {
+		return false, nil, err
+	}
+	return true, h, nil
+}
+func (s *SQLiteStore) SaveAuditLog(ctx context.Context, entry interface{}) error {
+	data, err := json.Marshal(entry)
+	if err != nil {
+		return err
+	}
+
+	var m map[string]interface{}
+	if err := json.Unmarshal(data, &m); err != nil {
+		return err
+	}
+
+	_, err = s.db.ExecContext(ctx,
+		`INSERT INTO audit_logs (id, user_id, action, resource, details, ip_address, username)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		m["id"], m["userId"], m["action"], m["resource"], m["details"], m["ipAddress"], m["username"])
+	return err
+}
+
+func (s *SQLiteStore) ListAuditLogs(ctx context.Context) ([]interface{}, error) {
+	rows, err := s.db.QueryContext(ctx, 
+		`SELECT id, user_id, action, resource, details, ip_address, username, created_at 
+		 FROM audit_logs 
+		 ORDER BY created_at DESC 
+		 LIMIT 200`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var logs []interface{}
+	for rows.Next() {
+		var id, userID, action, resource, details, ip, username, createdAt string
+		if err := rows.Scan(&id, &userID, &action, &resource, &details, &ip, &username, &createdAt); err != nil {
+			return nil, err
+		}
+		logs = append(logs, map[string]interface{}{
+			"id":        id,
+			"userId":    userID,
+			"action":    action,
+			"resource":  resource,
+			"details":   details,
+			"ipAddress": ip,
+			"username":  username,
+			"timestamp": createdAt,
+		})
+	}
+	return logs, nil
 }

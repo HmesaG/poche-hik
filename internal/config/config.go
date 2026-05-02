@@ -11,6 +11,8 @@ import (
 
 type Config struct {
 	ServerPort string
+	Port       int
+	ServerIP   string
 	DBPath     string
 	LogLevel   string
 
@@ -30,6 +32,7 @@ type Config struct {
 	// Attendance Rules
 	DefaultShiftStart  string
 	DefaultShiftEnd    string
+	WeeklyScheduleJSON string
 	LunchBreakMinutes  int
 	GracePeriodMinutes int
 
@@ -66,6 +69,8 @@ func Load() (*Config, error) {
 
 	cfg := &Config{
 		ServerPort:               getEnv("SERVER_PORT", "8080"),
+		Port:                     getEnvAsInt("SERVER_PORT", 8080),
+		ServerIP:                 getEnv("SERVER_IP", "127.0.0.1"),
 		DBPath:                   getEnv("DB_PATH", filepath.Join(".", "ponches.db")),
 		LogLevel:                 getEnv("LOG_LEVEL", "info"),
 		CompanyName:              getEnv("COMPANY_NAME", "Empresa"),
@@ -77,6 +82,7 @@ func Load() (*Config, error) {
 		HikvisionPassword:        getEnv("HIKVISION_PASSWORD", ""),
 		DefaultShiftStart:        getEnv("DEFAULT_SHIFT_START", "08:00"),
 		DefaultShiftEnd:          getEnv("DEFAULT_SHIFT_END", "17:00"),
+		WeeklyScheduleJSON:       getEnv("WEEKLY_SCHEDULE", ""),
 		LunchBreakMinutes:        getEnvAsInt("LUNCH_BREAK_MINUTES", 60),
 		GracePeriodMinutes:       getEnvAsInt("GRACE_PERIOD_MINUTES", 5),
 		OvertimeMultiplierSimple: getEnvAsFloat("OVERTIME_MULTIPLIER_SIMPLE", 1.5),

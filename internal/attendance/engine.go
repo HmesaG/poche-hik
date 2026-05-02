@@ -2,6 +2,7 @@ package attendance
 
 import (
 	"context"
+	"encoding/json"
 	"ponches/internal/store"
 	"sort"
 	"strconv"
@@ -9,13 +10,21 @@ import (
 	"time"
 )
 
+// DaySchedule represents the expected schedule for a single day
+type DaySchedule struct {
+	IsWorkday bool   `json:"is_workday"`
+	Start     string `json:"start"`
+	End       string `json:"end"`
+}
+
 // AttendanceConfig holds configuration for attendance calculations
 type AttendanceConfig struct {
-	ShiftStart         string  // "08:00"
-	ShiftEnd           string  // "17:00"
+	ShiftStart         string  // Global default
+	ShiftEnd           string  // Global default
+	WeeklyScheduleJSON string  // JSON string of map[string]DaySchedule
 	LunchBreakMinutes  int     // Minutes to deduct for lunch
 	GracePeriodMinutes int     // Minutes of tolerance for late arrival
-	OvertimeThreshold  float64 // Hours before overtime kicks in (e.g., 8)
+	OvertimeThreshold  float64 // Global default
 }
 
 // DefaultConfig returns default attendance configuration
@@ -31,20 +40,32 @@ func DefaultConfig() AttendanceConfig {
 
 // EventProcessor handles attendance event processing
 type EventProcessor struct {
-	store  store.Repository
-	config AttendanceConfig
+	store    store.Repository
+	config   AttendanceConfig
+	schedule map[string]DaySchedule
 }
 
 // NewEventProcessor creates a new event processor
 func NewEventProcessor(s store.Repository, cfg AttendanceConfig) *EventProcessor {
+	schedule := make(map[string]DaySchedule)
+	if cfg.WeeklyScheduleJSON != "" {
+		_ = json.Unmarshal([]byte(cfg.WeeklyScheduleJSON), &schedule)
+	}
 	return &EventProcessor{
-		store:  s,
-		config: cfg,
+		store:    s,
+		config:   cfg,
+		schedule: schedule,
 	}
 }
 
 // CalculateDayResult calculates attendance for an employee on a specific date
 func (p *EventProcessor) CalculateDayResult(ctx context.Context, employeeNo string, date time.Time) (*DayResult, error) {
+	// Check if it's a holiday
+	isHoliday, holiday, err := p.store.IsHoliday(ctx, date)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to check holiday status")
+	}
+
 	// Get all events for this employee on this date
 	from := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.Local)
 	to := from.Add(24 * time.Hour)
@@ -58,7 +79,10 @@ func (p *EventProcessor) CalculateDayResult(ctx context.Context, employeeNo stri
 		return nil, err
 	}
 
-	result := p.ProcessEvents(employeeNo, date, events)
+	result := p.ProcessEvents(employeeNo, date, events, isHoliday)
+	if holiday != nil {
+		result.Notes = holiday.Name
+	}
 	if err := p.attachEmployeeName(ctx, result); err != nil {
 		return nil, err
 	}
@@ -67,13 +91,37 @@ func (p *EventProcessor) CalculateDayResult(ctx context.Context, employeeNo stri
 }
 
 // ProcessEvents processes a list of attendance events and returns a DayResult
-func (p *EventProcessor) ProcessEvents(employeeNo string, date time.Time, events []*store.AttendanceEvent) *DayResult {
+func (p *EventProcessor) ProcessEvents(employeeNo string, date time.Time, events []*store.AttendanceEvent, isHoliday bool) *DayResult {
 	result := &DayResult{
 		EmployeeNo: employeeNo,
 		Date:       date,
+		IsHoliday:  isHoliday,
+	}
+
+	weekday := date.Weekday().String() // "Monday", "Tuesday", etc.
+	
+	isWorkday := true
+	shiftStart := p.config.ShiftStart
+	shiftEnd := p.config.ShiftEnd
+	
+	if daySch, ok := p.schedule[weekday]; ok {
+		isWorkday = daySch.IsWorkday
+		shiftStart = daySch.Start
+		shiftEnd = daySch.End
+	}
+
+	// On holidays, we treat it like a non-workday for regular hours, 
+	// but all hours worked are overtime (Triple pay handled in Payroll)
+	if isHoliday {
+		isWorkday = false
 	}
 
 	if len(events) == 0 {
+		if !isWorkday {
+			result.IsAbsent = false
+			result.Notes = "Día Libre"
+			return result
+		}
 		result.IsAbsent = true
 		return result
 	}
@@ -117,18 +165,24 @@ func (p *EventProcessor) ProcessEvents(employeeNo string, date time.Time, events
 	result.TotalHours = duration
 
 	// Check for lateness
-	result.IsLate = p.checkLateness(checkIn)
-	result.LateMinutes = result.CalculateLateMinutes(p.config.ShiftStart, p.config.GracePeriodMinutes)
+	result.IsLate = p.checkLateness(checkIn, shiftStart)
+	result.LateMinutes = result.CalculateLateMinutes(shiftStart, p.config.GracePeriodMinutes)
 
 	// Calculate regular and overtime hours
-	result.RegularHours, result.Overtime = p.calculateHours(result.TotalHours)
+	if isWorkday {
+		result.RegularHours, result.Overtime = p.calculateHours(result.TotalHours, shiftStart, shiftEnd)
+	} else {
+		result.RegularHours = 0
+		result.Overtime = result.TotalHours
+		result.Notes = "Trabajo en día no laborable"
+	}
 
 	return result
 }
 
 // checkLateness determines if the employee was late based on check-in time
-func (p *EventProcessor) checkLateness(checkIn time.Time) bool {
-	shiftStartParts := strings.Split(p.config.ShiftStart, ":")
+func (p *EventProcessor) checkLateness(checkIn time.Time, shiftStart string) bool {
+	shiftStartParts := strings.Split(shiftStart, ":")
 	if len(shiftStartParts) != 2 {
 		return false
 	}
@@ -146,11 +200,35 @@ func (p *EventProcessor) checkLateness(checkIn time.Time) bool {
 }
 
 // calculateHours splits total hours into regular and overtime
-func (p *EventProcessor) calculateHours(totalHours float64) (regular, overtime float64) {
-	if totalHours <= p.config.OvertimeThreshold {
+func (p *EventProcessor) calculateHours(totalHours float64, shiftStart, shiftEnd string) (regular, overtime float64) {
+	threshold := p.config.OvertimeThreshold
+	
+	startParts := strings.Split(shiftStart, ":")
+	endParts := strings.Split(shiftEnd, ":")
+	
+	if len(startParts) == 2 && len(endParts) == 2 {
+		h1, _ := strconv.Atoi(startParts[0])
+		m1, _ := strconv.Atoi(startParts[1])
+		h2, _ := strconv.Atoi(endParts[0])
+		m2, _ := strconv.Atoi(endParts[1])
+		
+		t1 := float64(h1) + float64(m1)/60.0
+		t2 := float64(h2) + float64(m2)/60.0
+		
+		diff := t2 - t1
+		if diff > 5.0 {
+			lunchHours := float64(p.config.LunchBreakMinutes) / 60.0
+			diff -= lunchHours
+		}
+		if diff > 0 {
+			threshold = diff
+		}
+	}
+
+	if totalHours <= threshold {
 		return totalHours, 0
 	}
-	return p.config.OvertimeThreshold, totalHours - p.config.OvertimeThreshold
+	return threshold, totalHours - threshold
 }
 
 // CalculateDateRange calculates attendance for an employee over a date range
@@ -172,6 +250,12 @@ func (p *EventProcessor) CalculateDateRange(ctx context.Context, employeeNo stri
 
 // CalculateAllEmployees calculates attendance for all employees on a specific date
 func (p *EventProcessor) CalculateAllEmployees(ctx context.Context, date time.Time) ([]*DayResult, error) {
+	// Check if it's a holiday
+	isHoliday, holiday, err := p.store.IsHoliday(ctx, date)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to check holiday status")
+	}
+
 	employees, err := p.store.ListEmployees(ctx)
 	if err != nil {
 		return nil, err
@@ -212,7 +296,10 @@ func (p *EventProcessor) CalculateAllEmployees(ctx context.Context, date time.Ti
 			continue
 		}
 
-		result := p.ProcessEvents(employee.EmployeeNo, date, employeeEvents[employee.EmployeeNo])
+		result := p.ProcessEvents(employee.EmployeeNo, date, employeeEvents[employee.EmployeeNo], isHoliday)
+		if holiday != nil {
+			result.Notes = holiday.Name
+		}
 		result.EmployeeName = strings.TrimSpace(employee.FirstName + " " + employee.LastName)
 		results = append(results, result)
 	}

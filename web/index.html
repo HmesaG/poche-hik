@@ -11,15 +11,15 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Ponches">
     <link rel="manifest" href="/manifest.webmanifest">
-    <link rel="stylesheet" href="style.css?v=20260418f">
+    <link rel="stylesheet" href="assets/css/style.css?v=20260418f">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⌚</text></svg>">
-    <link rel="shortcut icon" href="/favicon-32.png" type="image/png">
-    <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
-    <link rel="icon" href="/icons/icon-192.png" sizes="192x192" type="image/png">
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="shortcut icon" href="/assets/img/favicon-32.png" type="image/png">
+    <link rel="icon" href="/assets/img/favicon-32.png" sizes="32x32" type="image/png">
+    <link rel="icon" href="/assets/icons/icon-192.png" sizes="192x192" type="image/png">
+    <link rel="apple-touch-icon" href="/assets/img/apple-touch-icon.png">
 </head>
 <body>
     <svg class="app-icon-sprite" aria-hidden="true" focusable="false">
@@ -96,6 +96,9 @@
             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
             <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
         </symbol>
+        <symbol id="icon-holiday" viewBox="0 0 24 24">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="1.8"/>
+        </symbol>
         <symbol id="icon-trash" viewBox="0 0 24 24">
             <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
             <path d="M10 11v6M14 11v6" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
@@ -105,6 +108,16 @@
         </symbol>
         <symbol id="icon-x" viewBox="0 0 24 24">
             <path d="M18 6 6 18M6 6l12 12" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"/>
+        </symbol>
+        <symbol id="icon-plus" viewBox="0 0 24 24">
+            <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
+        </symbol>
+        <symbol id="icon-search" viewBox="0 0 24 24">
+            <circle cx="11" cy="11" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/>
+            <path d="m21 21-4.35-4.35" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.8"/>
+        </symbol>
+        <symbol id="icon-arrow-right" viewBox="0 0 24 24">
+            <path d="M5 12h14M12 5l7 7-7 7" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
         </symbol>
         <symbol id="icon-file-text" viewBox="0 0 24 24">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" fill="none" stroke="currentColor" stroke-width="1.8"/>
@@ -125,12 +138,22 @@
         <symbol id="icon-theme" viewBox="0 0 24 24">
             <path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
         </symbol>
+        <symbol id="icon-shield" viewBox="0 0 24 24">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
+        </symbol>
+        <symbol id="icon-wifi" viewBox="0 0 24 24">
+            <path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
+        </symbol>
+        <symbol id="icon-support" viewBox="0 0 24 24">
+            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 1 1-7.6-10.6 8.38 8.38 0 0 1 3.8.9" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
+            <path d="M16 3l1.5 1.5M19 6l1.5 1.5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
+        </symbol>
     </svg>
     <!-- Login Screen -->
     <div id="login-screen" class="login-screen">
         <div class="login-card">
             <div class="login-header">
-                <img src="/logo-ponche.png" alt="Ponches" class="brand-logo-image login-brand-image">
+                <img src="/assets/img/logo-ponche.png" alt="Ponches" class="brand-logo-image login-brand-image">
                 <h1>Ponches</h1>
                 <p>Control de Asistencia</p>
             </div>
@@ -155,7 +178,7 @@
         <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
         <aside class="sidebar">
             <div class="logo">
-                <img src="/logo-ponche.png" alt="Ponches" class="brand-logo-image sidebar-brand-image">
+                <img src="/assets/img/logo-ponche.png" alt="Ponches" class="brand-logo-image sidebar-brand-image">
                 <div class="logo-copy">
                     <h1>Ponches</h1>
                     <p>Control Empresarial</p>
@@ -172,6 +195,8 @@
                     <li data-page="positions" data-title="Cargos" class="nav-item-org"><span class="nav-item-content"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-briefcase"></use></svg><span class="nav-text">Cargos</span></span></li>
                     <li data-page="travel-allowances" data-title="Viáticos" class="nav-item-org"><span class="nav-item-content"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-travel"></use></svg><span class="nav-text">Viáticos</span></span></li>
                     <li data-page="leaves" data-title="Permisos" class="nav-item-org"><span class="nav-item-content"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-calendar"></use></svg><span class="nav-text">Permisos</span></span></li>
+                    <li data-page="holidays" data-title="Feriados" class="nav-item-org"><span class="nav-item-content"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-holiday"></use></svg><span class="nav-text">Feriados</span></span></li>
+                    <li data-page="audit" data-title="Auditoría" class="nav-item-org"><span class="nav-item-content"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-shield"></use></svg><span class="nav-text">Auditoría</span></span></li>
 
                     <li data-page="settings">Configuración</li>
                 </ul>
@@ -195,7 +220,7 @@
                         <span></span>
                         <span></span>
                     </button>
-                    <img src="/logo-ponche.png" alt="Ponches" class="brand-logo-image top-bar-brand-image">
+                    <img src="/assets/img/logo-ponche.png" alt="Ponches" class="brand-logo-image top-bar-brand-image">
                     <h2 id="page-title">Dashboard</h2>
                 </div>
                 <div class="user-profile">
@@ -221,7 +246,7 @@
                             </div>
                         </div>
                         <div class="dashboard-brand-card">
-                            <img src="/logo-ponche.png" alt="Ponches" class="brand-logo-image dashboard-brand-image">
+                            <img src="/assets/img/logo-ponche.png" alt="Ponches" class="brand-logo-image dashboard-brand-image">
                             <div class="dashboard-brand-copy">
                                 <span class="dashboard-brand-kicker">Grupo MV</span>
                                 <strong>Ponches</strong>
@@ -329,6 +354,7 @@
                     <div class="header-actions">
                         <button class="btn btn-secondary btn-sm" id="btn-add-device">+ Nuevo Dispositivo</button>
                         <button class="btn btn-secondary btn-sm" id="btn-read-recent-events" title="Leer eventos recientes de asistencia">Leer Ponches Recientes</button>
+                        <button class="btn btn-secondary btn-sm" id="btn-import-all-photos" title="Importar todas las fotos faltantes desde los dispositivos">Importar Fotos</button>
                         <button class="btn btn-secondary btn-sm" id="btn-sync-all-config">Sincronizar Empleados</button>
                     </div>
                 </div>
@@ -388,14 +414,14 @@
                 </div>
 
                 <!-- Health Panel for Devices -->
-                <div class="device-panel" style="margin-top: 1.5rem; grid-column: 1/-1;">
+                <div class="device-panel" style="margin-top: 1.5rem; grid-column: 1/-1; display:none;">
                     <div class="device-panel-header">
                         <div>
                             <h4>Centro de Salud y Sync (Logs)</h4>
                             <p>Monitoreo de errores, fallas de sincronización y estado de red con las terminales ISAPI.</p>
                         </div>
                         <div style="display:flex; gap:0.5rem;">
-                            <button class="btn btn-secondary btn-sm" id="btn-refresh-device-logs" title="Actualizar logs de dispositivos">
+                            <button class="btn btn-secondary btn-sm" id="btn-refresh-device-logs-legacy" title="Actualizar logs de dispositivos">
                                 <svg style="width:14px;height:14px;margin-right:4px;"><use href="#icon-refresh"></use></svg>
                                 Refrescar Logs
                             </button>
@@ -405,7 +431,7 @@
                     <div class="health-panel">
                         <div class="health-card">
                             <h5>Errores ISAPI Activos</h5>
-                            <span class="value" id="health-error-count">0</span>
+                            <span class="value" id="health-error-count-legacy">0</span>
                             <div class="status-indicator" style="color: #ef4444;">
                                 <svg viewBox="0 0 24 24" style="width:16px;height:16px;" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                                 Verificando operaciones
@@ -414,7 +440,7 @@
                         
                         <div class="health-card">
                             <h5>Último Fallo de Red</h5>
-                            <span class="value" id="health-last-failure" style="font-size: 1.25rem;">N/D</span>
+                            <span class="value" id="health-last-failure-legacy" style="font-size: 1.25rem;">N/D</span>
                             <div class="status-indicator">
                                 Estado de latencia normal
                             </div>
@@ -422,7 +448,7 @@
 
                         <div class="health-card" style="grid-column: 1/-1; background: rgba(0,0,0,0.2);">
                             <div class="users-table-container" style="max-height: 250px; overflow-y: auto;">
-                                <table class="logs-table" id="device-logs-table">
+                                <table class="logs-table" id="device-logs-table-legacy">
                                     <thead>
                                         <tr>
                                             <th style="width: 140px;">Timestamp</th>
@@ -432,7 +458,7 @@
                                             <th>Mensaje de Error</th>
                                         </tr>
                                     </thead>
-                                    <tbody id="device-logs-list">
+                                    <tbody id="device-logs-list-legacy">
                                         <tr>
                                             <td colspan="5" style="text-align: center; color: var(--text-muted);">Iniciando monitor de diagnóstico...</td>
                                         </tr>
@@ -450,10 +476,11 @@
                     <h3>Gestión de Empleados</h3>
                     <div class="header-actions" style="display:flex; gap:1rem; align-items:center;">
                         <input type="text" id="employee-search" placeholder="Buscar empleado..." style="padding:0.4rem 0.8rem; border-radius:0.6rem; border:1px solid var(--border); background:rgba(255,255,255,0.05); color:white; width: 250px; font-size: 0.85rem;" autocomplete="off">
+                        <button class="btn btn-sm btn-secondary" id="btn-sync-employees">Sincronizar</button>
                         <button class="btn btn-sm" id="btn-add-employee">+ Nuevo Empleado</button>
                     </div>
                 </div>
-                <div class="card">
+                <div class="card" style="padding: 0;">
                     <div class="users-table-container">
                         <table id="employees-table">
                             <thead>
@@ -470,6 +497,10 @@
                             </tbody>
                         </table>
                     </div>
+                    <div class="ar-footer">
+                        <div class="ar-footer-info" id="employees-row-count">Mostrando 0 de 0 registros</div>
+                        <div class="ar-pagination" id="employees-pagination"></div>
+                    </div>
                 </div>
             </section>
 
@@ -478,7 +509,7 @@
                     <h3>Gestión de Departamentos</h3>
                     <button class="btn btn-sm" id="btn-add-dept">+ Nuevo Departamento</button>
                 </div>
-                <div class="card">
+                <div class="card" style="padding: 0;">
                     <div class="users-table-container">
                         <table id="departments-table">
                             <thead>
@@ -494,6 +525,10 @@
                             </tbody>
                         </table>
                     </div>
+                    <div class="ar-footer">
+                        <div class="ar-footer-info" id="departments-row-count">Mostrando 0 de 0 registros</div>
+                        <div class="ar-pagination" id="departments-pagination"></div>
+                    </div>
                 </div>
             </section>
 
@@ -502,7 +537,7 @@
                     <h3>Gestión de Cargos / Posiciones</h3>
                     <button class="btn btn-sm" id="btn-add-pos">+ Nuevo Cargo</button>
                 </div>
-                <div class="card">
+                <div class="card" style="padding: 0;">
                     <div class="users-table-container">
                         <table id="positions-table">
                             <thead>
@@ -518,6 +553,10 @@
                                 <!-- Cargos cargados dinámicamente -->
                             </tbody>
                         </table>
+                    </div>
+                    <div class="ar-footer">
+                        <div class="ar-footer-info" id="positions-row-count">Mostrando 0 de 0 registros</div>
+                        <div class="ar-pagination" id="positions-pagination"></div>
                     </div>
                 </div>
             </section>
@@ -558,8 +597,81 @@
                             </tbody>
                         </table>
                     </div>
+                    <div class="ar-footer">
+                        <div class="ar-footer-info" id="leaves-row-count">Mostrando 0 de 0 registros</div>
+                        <div class="ar-pagination" id="leaves-pagination"></div>
+                    </div>
                 </div>
             </section>
+
+            <!-- Feriados -->
+            <section id="holidays" class="page">
+                <div class="page-header">
+                    <div>
+                        <h3>Calendario de Feriados</h3>
+                        <p class="section-lead">Gestión de días no laborables y festivos para el cálculo automático de horas extras (Triple Pago).</p>
+                    </div>
+                    <button class="btn btn-primary" id="btn-add-holiday">
+                        <svg class="btn-icon"><use href="#icon-plus"></use></svg>
+                        Nuevo Feriado
+                    </button>
+                </div>
+                <div class="card" style="padding: 0;">
+                    <div class="users-table-container">
+                        <table id="holidays-table">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Nombre</th>
+                                    <th>Descripción</th>
+                                    <th>Recurrente</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="holidays-list">
+                                <!-- Dinámico -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="ar-footer">
+                        <div class="ar-footer-info" id="holidays-row-count">Mostrando 0 de 0 registros</div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Auditoría -->
+            <section id="audit" class="page">
+                <div class="page-header">
+                    <div>
+                        <h3>Registro de Auditoría</h3>
+                        <p class="section-lead">Trazabilidad de acciones administrativas, cambios en personal y configuraciones de dispositivos.</p>
+                    </div>
+                    <button class="btn btn-secondary btn-sm" id="btn-refresh-audit">
+                        <svg class="btn-icon"><use href="#icon-refresh"></use></svg>
+                        Actualizar
+                    </button>
+                </div>
+                <div class="card" style="padding: 0;">
+                    <div class="users-table-container">
+                        <table id="audit-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 160px;">Fecha/Hora</th>
+                                    <th style="width: 120px;">Acción</th>
+                                    <th style="width: 140px;">Recurso</th>
+                                    <th>Detalles</th>
+                                    <th style="width: 120px;">Usuario</th>
+                                    <th style="width: 120px;">IP</th>
+                                </tr>
+                            </thead>
+                            <tbody id="audit-list">
+                                <tr><td colspan="6" class="text-muted" style="text-align:center; padding:2rem;">Cargando registros...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
 
             <!-- Viáticos -->
             <section id="travel-allowances" class="page">
@@ -605,10 +717,14 @@
                             </thead>
                             <tbody id="travel-list">
                                 <tr>
-                                    <td colspan="9" style="text-align:center;padding:2rem;color:var(--text-muted);">Selecciona la sección de viáticos para cargar los datos.</td>
+                                    <td colspan="9" style="text-align:center;padding:2rem;color:var(--text-muted);">Cargando datos...</td>
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
+                    <div class="ar-footer">
+                        <div class="ar-footer-info" id="travel-row-count">Mostrando 0 de 0 registros</div>
+                        <div class="ar-pagination" id="travel-pagination"></div>
                     </div>
                 </div>
             </section>
@@ -847,6 +963,32 @@
                                         <label>Horas Jornada</label>
                                         <input type="number" name="work_hours" value="8">
                                     </div>
+                                    <div class="form-group">
+                                        <label>Hora Entrada (Global)</label>
+                                        <input type="time" name="default_shift_start" value="08:00">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Hora Salida (Global)</label>
+                                        <input type="time" name="default_shift_end" value="17:00">
+                                    </div>
+                                    <div class="form-group" style="grid-column: 1/-1;">
+                                        <label>Horario Semanal de la Empresa</label>
+                                        <div class="table-container" style="margin-top: 10px; overflow-x: auto; max-width: 100%; width: 100%; box-sizing: border-box;">
+                                            <table class="data-table" id="weekly-schedule-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th style="width: 25%; padding: 8px; font-size: 0.9em;">Día</th>
+                                                        <th style="width: 20%; text-align: center; padding: 8px; font-size: 0.9em;">Laborable</th>
+                                                        <th style="width: 25%; text-align: center; padding: 8px; font-size: 0.9em;">Entrada</th>
+                                                        <th style="width: 25%; text-align: center; padding: 8px; font-size: 0.9em;">Salida</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <!-- Filled by JS -->
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
                                     <div class="form-group" style="grid-column: 1/-1; margin-top: 10px;">
                                         <label class="checkbox-container">
                                             <input type="checkbox" name="travel_module_enabled" value="true">
@@ -903,6 +1045,69 @@
                                     <button type="submit" class="btn">Guardar LDAP</button>
                                 </div>
                             </form>
+                        </div>
+
+                        <div class="settings-card" style="grid-column: 1/-1;">
+                            <div class="device-panel-header">
+                                <div>
+                                    <h4>Centro de Salud y Sync (Logs)</h4>
+                                    <p>Monitoreo de errores, solicitudes al dispositivo y estado de red con las terminales ISAPI.</p>
+                                </div>
+                                <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+                                    <button class="btn btn-secondary btn-sm" id="btn-send-device-logs-mail" title="Enviar resumen por correo">
+                                        <svg style="width:14px;height:14px;margin-right:4px;"><use href="#icon-mail"></use></svg>
+                                        Correo
+                                    </button>
+                                    <button class="btn btn-secondary btn-sm" id="btn-send-device-logs-wa" title="Enviar resumen por WhatsApp">
+                                        <svg style="width:14px;height:14px;margin-right:4px;"><use href="#icon-support"></use></svg>
+                                        WhatsApp
+                                    </button>
+                                    <button class="btn btn-secondary btn-sm" id="btn-refresh-device-logs" title="Actualizar logs de dispositivos">
+                                        <svg style="width:14px;height:14px;margin-right:4px;"><use href="#icon-refresh"></use></svg>
+                                        Refrescar Logs
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="health-panel">
+                                <div class="health-card">
+                                    <h5>Errores ISAPI Activos</h5>
+                                    <span class="value" id="health-error-count">0</span>
+                                    <div class="status-indicator" style="color: #ef4444;">
+                                        <svg viewBox="0 0 24 24" style="width:16px;height:16px;" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                        Verificando operaciones
+                                    </div>
+                                </div>
+
+                                <div class="health-card">
+                                    <h5>Ãšltimo Fallo de Red</h5>
+                                    <span class="value" id="health-last-failure" style="font-size: 1.25rem;">N/D</span>
+                                    <div class="status-indicator">
+                                        Estado de latencia normal
+                                    </div>
+                                </div>
+
+                                <div class="health-card" style="grid-column: 1/-1; background: rgba(0,0,0,0.2);">
+                                    <div class="users-table-container" style="max-height: 250px; overflow-y: auto;">
+                                        <table class="logs-table" id="device-logs-table">
+                                            <thead>
+                                                <tr>
+                                                    <th style="width: 140px;">Timestamp</th>
+                                                    <th style="width: 120px;">Dispositivo</th>
+                                                    <th style="width: 100px;">Nivel</th>
+                                                    <th style="width: 180px;">OperaciÃ³n</th>
+                                                    <th>Mensaje de Error</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="device-logs-list">
+                                                <tr>
+                                                    <td colspan="5" style="text-align: center; color: var(--text-muted);">Iniciando monitor de diagnÃ³stico...</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -972,9 +1177,10 @@
             </div>
             <form id="employee-form" class="modal-body">
                 <input type="hidden" name="id" id="employee-id">
+                <input type="hidden" name="photoUrl" id="employee-photo-url">
                 <div class="form-grid">
                     <!-- Photo Column (Spans 2 rows) -->
-                    <div class="form-group" style="grid-row: span 2; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(255,255,255,0.02); border-radius: 1.25rem; border: 1px dashed var(--border-strong); padding: 1.5rem; position: relative;">
+                    <div class="form-group photo-upload-container" style="grid-row: span 2; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(255,255,255,0.02); border-radius: 1.25rem; border: 1px dashed var(--border-strong); padding: 1.5rem; position: relative;">
                         <span class="eyebrow" style="position: absolute; top: 0.75rem; left: 0.75rem; margin-bottom: 0;">Rostro</span>
                         <div class="photo-preview-wrapper" style="position: relative; width: 150px; height: 150px; margin-bottom: 1.25rem; margin-top: 1rem;">
                              <img id="employee-photo-preview" src="" alt="Foto" style="width: 100%; height: 100%; border-radius: 1.25rem; object-fit: cover; border: 1px solid var(--border-strong); display: none; box-shadow: var(--shadow-soft);">
@@ -982,9 +1188,13 @@
                                  <svg viewBox="0 0 24 24" style="width: 54px; height: 54px; opacity: 0.2;"><use href="#icon-user"></use></svg>
                              </div>
                         </div>
-                        <button type="button" class="btn btn-xs btn-secondary" onclick="document.getElementById('emp-photo-input').click()">Subir Imagen</button>
-                        <input type="file" id="emp-photo-input" style="display: none;" accept="image/jpeg">
-                        <p class="text-muted" style="font-size: 0.7rem; margin-top: 0.75rem; text-align: center;">Recomendado: JPG cuadrado, buena luz.</p>
+                        <div style="display: flex; gap: 8px; margin-top: 10px;">
+                             <button type="button" class="btn btn-xs btn-secondary" onclick="document.getElementById('input-employee-photo').click()">Subir Imagen</button>
+                             <button type="button" class="btn btn-xs btn-secondary" id="btn-remove-employee-photo" onclick="removeEmployeePhoto()" style="display:none;">Quitar Foto</button>
+                        </div>
+                        <p id="employee-admin-flag" class="text-muted" style="display:none; font-size: 0.72rem; margin-top: 0.75rem; text-align: center; color: #f6b24a;">Empleado vinculado a administrador del sistema. La foto queda protegida.</p>
+                        <input type="file" id="input-employee-photo" style="display: none;" accept="image/jpeg,image/png" onchange="handlePhotoSelect(event)">
+                        <p class="text-muted" style="font-size: 0.7rem; margin-top: 0.75rem; text-align: center;">Recomendado: JPG o PNG cuadrado, buena luz.</p>
                     </div>
 
                     <div class="form-group">
@@ -1002,6 +1212,10 @@
                     <div class="form-group">
                         <label>No. Empleado (Reloj)</label>
                         <input type="text" name="employeeNo" required placeholder="101">
+                    </div>
+                    <div class="form-group">
+                        <label>No. Tarjeta (RFID)</label>
+                        <input type="text" name="cardNo" placeholder="Ej. 0001234567">
                     </div>
                     <div class="form-group">
                         <label>No. Flota</label>
@@ -1074,6 +1288,7 @@
                 </p>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary close-modal">Cancelar</button>
+                    <button type="button" class="btn btn-secondary" id="btn-import-face">Importar del dispositivo</button>
                     <button type="submit" class="btn">Enviar al Dispositivo</button>
                 </div>
             </form>
@@ -1123,6 +1338,15 @@
                     <div class="form-group">
                         <label>Serie</label>
                         <input type="text" name="serial" id="device-serial" placeholder="Serial del dispositivo">
+                    </div>
+                    <div class="form-group">
+                        <label>Offset de Hora (Zona Horaria)</label>
+                        <select name="timezoneOffset" id="device-timezone">
+                            <option value="+08:00">UTC+08:00 (Estándar Hikvision)</option>
+                            <option value="-04:00">UTC-04:00 (República Dominicana)</option>
+                            <option value="-05:00">UTC-05:00 (Panamá / Colombia)</option>
+                            <option value="+00:00">UTC+00:00 (GMT/Z)</option>
+                        </select>
                     </div>
                     <div class="form-group" style="grid-column: 1/-1;">
                         <label class="checkbox-inline">
@@ -1276,7 +1500,7 @@
 
     <!-- Modal Nueva / Editar Solicitud de Viático -->
     <div class="modal-overlay" id="travel-modal">
-        <div class="modal-card">
+        <div class="modal-card modal-card--lg">
             <div class="modal-header">
                 <h3 id="travel-modal-title">Nueva Solicitud de Viático</h3>
                 <button class="close-modal" data-modal="travel-modal">&times;</button>
@@ -1303,9 +1527,38 @@
                     </div>
                     
                     <div class="form-group" id="travel-group-wrap" style="display:none; grid-column: 1/-1;">
-                        <label>Participantes</label>
-                        <select id="travel-employees-group" multiple size="4">
-                        </select>
+                        <label>Participantes del Grupo</label>
+                        <div class="transfer-container">
+                            <!-- Disponibles -->
+                            <div class="transfer-panel">
+                                <div class="transfer-panel-header">
+                                    <span>Empleados Disponibles</span>
+                                    <div class="search-box-sm">
+                                        <svg style="width:14px;height:14px;"><use href="#icon-search"></use></svg>
+                                        <input type="text" id="travel-participants-search" placeholder="Filtrar..." class="ar-input-sm">
+                                    </div>
+                                </div>
+                                <div id="travel-available-list" class="transfer-list">
+                                    <!-- JS Content -->
+                                </div>
+                            </div>
+
+                            <!-- Selector Divider -->
+                            <div class="transfer-arrow">
+                                <svg style="width:20px;height:20px;"><use href="#icon-arrow-right"></use></svg>
+                            </div>
+
+                            <!-- Seleccionados -->
+                            <div class="transfer-panel selected-panel">
+                                <div class="transfer-panel-header">
+                                    <span>Seleccionados (<b id="travel-participants-count">0</b>)</span>
+                                    <a href="javascript:void(0)" id="travel-participants-clear" class="text-accent" style="font-size:0.75rem;">Limpiar</a>
+                                </div>
+                                <div id="travel-selected-list" class="transfer-list">
+                                    <!-- JS Content -->
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="form-group">
@@ -1629,7 +1882,42 @@
         </div>
     </div>
 
+    <!-- Modal Feriado -->
+    <div class="modal-overlay" id="holiday-modal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 id="holiday-modal-title">Nuevo Feriado</h3>
+                <button class="close-modal" data-modal="holiday-modal">&times;</button>
+            </div>
+            <form id="holiday-form">
+                <input type="hidden" name="id" id="holiday-id">
+                <div class="modal-body grid-form">
+                    <div class="form-group">
+                        <label for="holiday-date">Fecha</label>
+                        <input type="date" name="date" id="holiday-date" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="holiday-name">Nombre del Feriado</label>
+                        <input type="text" name="name" id="holiday-name" placeholder="Ej. Día de la Independencia" required>
+                    </div>
+                    <div class="form-group" style="grid-column: 1/-1;">
+                        <label for="holiday-description">Descripción / Notas</label>
+                        <textarea name="description" id="holiday-description" rows="2" placeholder="Opcional..."></textarea>
+                    </div>
+                    <div class="form-group" style="grid-column: 1/-1; display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" name="recurring" id="holiday-recurring" style="width: auto;">
+                        <label for="holiday-recurring" style="margin: 0;">Se repite todos los años</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary close-modal" data-modal="holiday-modal">Cancelar</button>
+                    <button type="submit" class="btn">Guardar Feriado</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Scripts -->
-    <script src="app.js?v=20260418h"></script>
+    <script src="assets/js/app.js?v=20260501a"></script>
 </body>
 </html>

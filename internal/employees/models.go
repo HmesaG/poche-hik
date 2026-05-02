@@ -5,14 +5,17 @@ import (
 )
 
 type Employee struct {
-	ID         string    `json:"id"`
-	EmployeeNo string    `json:"employeeNo"` // Linked to Hikvision
-	FirstName  string    `json:"firstName"`
-	LastName   string    `json:"lastName"`
-	IDNumber   string    `json:"idNumber"` // Cédula/DNI
-	Gender     string    `json:"gender"`
-	BirthDate  time.Time `json:"birthDate"`
-	PhotoURL   string    `json:"photoUrl"`
+	ID            string    `json:"id"`
+	EmployeeNo    string    `json:"employeeNo"` // Linked to Hikvision
+	CardNo        string    `json:"cardNo"`     // RFID Card Number
+	FirstName     string    `json:"firstName"`
+	LastName      string    `json:"lastName"`
+	IDNumber      string    `json:"idNumber"` // CÃ©dula/DNI
+	Gender        string    `json:"gender"`
+	BirthDate     time.Time `json:"birthDate"`
+	PhotoURL      string    `json:"photoUrl"`
+	PhotoData     []byte    `json:"photoData,omitempty"`
+	IsSystemAdmin bool      `json:"isSystemAdmin"`
 
 	// Contact
 	Phone   string `json:"phone"`
@@ -26,8 +29,8 @@ type Employee struct {
 	Status       string    `json:"status"` // Active, Inactive, etc.
 	BaseSalary   float64   `json:"baseSalary"`
 	FaceID       string    `json:"faceId"`     // URL or ID of the registered face
-	FleetNo      string    `json:"fleetNo"`    // Número de flota
-	PersonalNo   string    `json:"personalNo"` // Número personal interno
+	FleetNo      string    `json:"fleetNo"`    // NÃºmero de flota
+	PersonalNo   string    `json:"personalNo"` // NÃºmero personal interno
 
 	// Relationships
 	EmergencyContacts []EmergencyContact `json:"emergencyContacts"`
@@ -131,4 +134,14 @@ type TravelAllowance struct {
 	GroupSize        int       `json:"groupSize,omitempty"`
 	CreatedAt        time.Time `json:"createdAt"`
 	UpdatedAt        time.Time `json:"updatedAt"`
+}
+
+// Holiday represents a public holiday for attendance calculation
+type Holiday struct {
+	ID          string    `json:"id"`
+	Date        time.Time `json:"date"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	Recurring   bool      `json:"recurring"`
+	CreatedAt   time.Time `json:"createdAt,omitempty"`
 }

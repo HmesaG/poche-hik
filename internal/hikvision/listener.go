@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -117,14 +119,16 @@ func (l *EventListener) notifyHandlers(event *AttendanceEvent) {
 
 // GetEventsInRange fetches attendance events from the device via ISAPI for a specific time range.
 func (c *Client) GetEventsInRange(ctx context.Context, start, end time.Time) ([]*AttendanceEvent, error) {
-	// For this device, JSON is required and strict about the time format.
-	// We'll use the format: 2026-04-25T17:53:41+08:00
-	// We'll try to detect the offset or use +08:00 as a fallback.
-	offset := "+08:00" 
+	// Many devices require JSON and a specific time format with offset.
+	// We use the wall clock time and append the device offset.
+	offset := c.TimezoneOffset
+	if offset == "" {
+		offset = "+08:00" // Standard default for Hikvision
+	}
 	
 	reqBody := map[string]interface{}{
 		"AcsEventCond": map[string]interface{}{
-			"searchID":             fmt.Sprintf("search-%d", time.Now().UnixMilli()),
+			"searchID":             uuid(),
 			"searchResultPosition": 0,
 			"maxResults":           1000,
 			"major":                0,
@@ -174,6 +178,12 @@ func (c *Client) GetEventsInRange(ctx context.Context, start, end time.Time) ([]
 			continue
 		}
 
+		// Sanitize employee number: remove leading zeros and whitespace
+		empNo = strings.TrimLeft(strings.TrimSpace(empNo), "0")
+		if empNo == "" {
+			empNo = "0"
+		}
+
 		// We ignore the timezone offset from the device and treat it as local wall clock time.
 		// This is necessary because devices often have a different timezone (+08:00) than the server,
 		// but the wall clocks are synchronized.
@@ -200,6 +210,11 @@ func (c *Client) GetEventsInRange(ctx context.Context, start, end time.Time) ([]
 }
 
 func (c *Client) getEventsInRangeXML(ctx context.Context, start, end time.Time) ([]*AttendanceEvent, error) {
+	offset := c.TimezoneOffset
+	if offset == "" {
+		offset = "+08:00"
+	}
+
 	xmlBody := fmt.Sprintf(`<?xml version="1.0" encoding="utf-8"?>
 <AcsEventCond xmlns="http://www.isapi.org/ver20/XMLSchema">
 	<searchID>%s</searchID>
@@ -211,8 +226,8 @@ func (c *Client) getEventsInRangeXML(ctx context.Context, start, end time.Time) 
 	<endTime>%s</endTime>
 </AcsEventCond>`, 
 		uuid(), 
-		start.Format("2006-01-02T15:04:05Z"),
-		end.Format("2006-01-02T15:04:05Z"))
+		start.Format("2006-01-02T15:04:05") + offset,
+		end.Format("2006-01-02T15:04:05") + offset)
 
 	resp, err := c.Do(ctx, "POST", "/ISAPI/AccessControl/AcsEvent", 
 		map[string]string{"Content-Type": "application/xml"}, []byte(xmlBody))
@@ -242,6 +257,10 @@ func (c *Client) getEventsInRangeXML(ctx context.Context, start, end time.Time) 
 		if info.EmployeeNo == "" {
 			continue
 		}
+		empNo := strings.TrimLeft(strings.TrimSpace(info.EmployeeNo), "0")
+		if empNo == "" {
+			empNo = "0"
+		}
 		timePart := info.Time
 		if len(timePart) > 19 {
 			timePart = timePart[:19]
@@ -252,7 +271,7 @@ func (c *Client) getEventsInRangeXML(ctx context.Context, start, end time.Time) 
 		}
 
 		events = append(events, &AttendanceEvent{
-			EmployeeNo:    info.EmployeeNo,
+			EmployeeNo:    empNo,
 			DeviceID:      c.Host,
 			Timestamp:     t,
 			EventType:     fmt.Sprintf("Major%d-Minor%d", info.Major, info.Minor),
@@ -324,20 +343,37 @@ func (pl *PushListener) handlePush(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Error reading body", http.StatusInternalServerError)
+		return
+	}
+
 	var event PushEvent
-	if err := json.NewDecoder(r.Body).Decode(&event); err != nil {
+	if err := json.Unmarshal(body, &event); err != nil {
 		// Try XML
-		if err := xml.NewDecoder(r.Body).Decode(&event); err != nil {
+		if err := xml.Unmarshal(body, &event); err != nil {
 			http.Error(w, "Invalid event format", http.StatusBadRequest)
 			return
 		}
+	}
+
+	// Parse time if it's a string
+	t := time.Now()
+	if event.TimeStr != "" {
+		t, _ = time.ParseInLocation("2006-01-02T15:04:05", strings.Replace(event.TimeStr, " ", "T", 1), time.Local)
+		if t.IsZero() {
+			t, _ = time.ParseInLocation(time.RFC3339, event.TimeStr, time.Local)
+		}
+	} else if !event.Time.IsZero() {
+		t = event.Time
 	}
 
 	// Convert to AttendanceEvent
 	attendanceEvent := &AttendanceEvent{
 		EmployeeNo:    event.EmployeeNo,
 		DeviceID:      event.DeviceInfo.IPAddress,
-		Timestamp:     event.Time,
+		Timestamp:     t,
 		EventType:     event.EventType,
 		Verified:      event.VerifyResult == 1,
 		AccessGranted: event.AccessResult == 1,
@@ -361,7 +397,8 @@ type PushEvent struct {
 		IPAddress string `json:"ipAddress" xml:"ipAddress"`
 		DeviceID  string `json:"deviceID" xml:"deviceID"`
 	} `json:"deviceInfo" xml:"deviceInfo"`
-	Time         time.Time `json:"time" xml:"time"`
+	Time         time.Time `json:"-" xml:"-"`
+	TimeStr      string    `json:"time" xml:"time"`
 	VerifyResult int       `json:"verifyResult" xml:"verifyResult"`
 	AccessResult int       `json:"accessResult" xml:"accessResult"`
 	DoorID       string    `json:"doorID" xml:"doorID"`

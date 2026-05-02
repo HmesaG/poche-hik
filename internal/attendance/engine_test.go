@@ -64,7 +64,11 @@ func (m *MockStore) ListEmployees(ctx context.Context) ([]*employees.Employee, e
 	}
 	return list, nil
 }
-func (m *MockStore) UpdateEmployee(ctx context.Context, e *employees.Employee) error     { return nil }
+func (m *MockStore) UpdateEmployee(ctx context.Context, e *employees.Employee) error { return nil }
+func (m *MockStore) UpdateEmployeePhoto(ctx context.Context, employeeNo string, photoData []byte) error {
+	return nil
+}
+func (m *MockStore) ClearEmployeePhoto(ctx context.Context, employeeNo string) error     { return nil }
 func (m *MockStore) DeleteEmployee(ctx context.Context, id string) error                 { return nil }
 func (m *MockStore) UpsertEmployee(ctx context.Context, e *employees.Employee) error     { return nil }
 func (m *MockStore) CreateDepartment(ctx context.Context, d *employees.Department) error { return nil }
@@ -92,6 +96,9 @@ func (m *MockStore) GetUser(ctx context.Context, id string) (*users.User, error)
 func (m *MockStore) GetUserByID(ctx context.Context, id string) (*users.User, error) { return nil, nil }
 func (m *MockStore) GetUserByUsername(ctx context.Context, username string) (*users.User, error) {
 	return nil, nil
+}
+func (m *MockStore) HasAdminUserByEmail(ctx context.Context, email string) (bool, error) {
+	return false, nil
 }
 func (m *MockStore) ListUsers(ctx context.Context) ([]*users.User, error)           { return nil, nil }
 func (m *MockStore) UpdateUser(ctx context.Context, u *users.User) error            { return nil }

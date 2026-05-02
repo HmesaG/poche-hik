@@ -33,6 +33,7 @@ func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
 		"hikvision_username":         s.Config.HikvisionUsername,
 		"default_shift_start":        s.Config.DefaultShiftStart,
 		"default_shift_end":          s.Config.DefaultShiftEnd,
+		"weekly_schedule":            s.Config.WeeklyScheduleJSON,
 		"lunch_break_minutes":        strconv.Itoa(s.Config.LunchBreakMinutes),
 		"grace_period_minutes":       strconv.Itoa(s.Config.GracePeriodMinutes),
 		"overtime_multiplier_simple": strconv.FormatFloat(s.Config.OvertimeMultiplierSimple, 'f', 2, 64),
@@ -118,6 +119,9 @@ func (s *Server) handleUpdateConfig(w http.ResponseWriter, r *http.Request) {
 	}
 	if val, ok := newCfg["default_shift_end"]; ok {
 		s.Config.DefaultShiftEnd = val
+	}
+	if val, ok := newCfg["weekly_schedule"]; ok {
+		s.Config.WeeklyScheduleJSON = val
 	}
 	if val, ok := newCfg["lunch_break_minutes"]; ok {
 		if v, err := strconv.Atoi(val); err == nil {

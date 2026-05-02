@@ -2,9 +2,9 @@ package store
 
 import (
 	"context"
-	"time"
 	"ponches/internal/employees"
 	"ponches/internal/users"
+	"time"
 )
 
 // Repository defines the interface for data persistence
@@ -15,6 +15,8 @@ type Repository interface {
 	GetEmployeeByNo(ctx context.Context, employeeNo string) (*employees.Employee, error)
 	ListEmployees(ctx context.Context) ([]*employees.Employee, error)
 	UpdateEmployee(ctx context.Context, e *employees.Employee) error
+	UpdateEmployeePhoto(ctx context.Context, employeeNo string, photoData []byte) error
+	ClearEmployeePhoto(ctx context.Context, employeeNo string) error
 	DeleteEmployee(ctx context.Context, id string) error
 	UpsertEmployee(ctx context.Context, e *employees.Employee) error
 
@@ -38,6 +40,7 @@ type Repository interface {
 	GetUser(ctx context.Context, id string) (*users.User, error)
 	GetUserByID(ctx context.Context, id string) (*users.User, error)
 	GetUserByUsername(ctx context.Context, username string) (*users.User, error)
+	HasAdminUserByEmail(ctx context.Context, email string) (bool, error)
 	ListUsers(ctx context.Context) ([]*users.User, error)
 	UpdateUser(ctx context.Context, u *users.User) error
 	DeleteUser(ctx context.Context, id string) error
@@ -77,6 +80,18 @@ type Repository interface {
 	ListLeavesByEmployee(ctx context.Context, employeeID string) ([]*employees.Leave, error)
 	UpdateLeave(ctx context.Context, l *employees.Leave) error
 	DeleteLeave(ctx context.Context, id string) error
+
+	// Holidays
+	ListHolidays(ctx context.Context) ([]*employees.Holiday, error)
+	GetHoliday(ctx context.Context, id string) (*employees.Holiday, error)
+	CreateHoliday(ctx context.Context, h *employees.Holiday) error
+	UpdateHoliday(ctx context.Context, h *employees.Holiday) error
+	DeleteHoliday(ctx context.Context, id string) error
+	IsHoliday(ctx context.Context, date time.Time) (bool, *employees.Holiday, error)
+
+	// Audit
+	SaveAuditLog(ctx context.Context, log interface{}) error
+	ListAuditLogs(ctx context.Context) ([]interface{}, error)
 }
 
 type AttendanceEvent struct {

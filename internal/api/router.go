@@ -72,8 +72,11 @@ func (s *Server) routes() {
 	s.Router.Get("/offline.html", serveWebAsset("offline.html", "text/html; charset=utf-8", "no-cache"))
 	s.Router.Get("/directorio", serveWebAsset("directorio.html", "text/html; charset=utf-8", "no-cache"))
 	s.Router.Get("/directory", serveWebAsset("directorio.html", "text/html; charset=utf-8", "no-cache"))
-	s.Router.Get("/icons/icon.svg", serveWebAsset(filepath.Join("icons", "icon.svg"), "image/svg+xml", "public, max-age=604800"))
-	s.Router.Get("/icons/icon-maskable.svg", serveWebAsset(filepath.Join("icons", "icon-maskable.svg"), "image/svg+xml", "public, max-age=604800"))
+	s.Router.Get("/icons/icon.svg", serveWebAsset(filepath.Join("assets", "icons", "icon.svg"), "image/svg+xml", "public, max-age=604800"))
+	s.Router.Get("/icons/icon-maskable.svg", serveWebAsset(filepath.Join("assets", "icons", "icon-maskable.svg"), "image/svg+xml", "public, max-age=604800"))
+
+	// Serve uploaded files
+	s.Router.Handle("/uploads/*", http.StripPrefix("/uploads/", http.FileServer(http.Dir(filepath.Join("web", "assets", "uploads")))))
 
 	s.Router.Get("/ws", s.handleWS)
 
@@ -83,6 +86,7 @@ func (s *Server) routes() {
 		r.Post("/auth/login", s.handleLogin)
 		r.Get("/directory", s.handlePublicDirectory)
 		r.Get("/directory/{employeeNo}/contact.vcf", s.handlePublicDirectoryContact)
+		r.Post("/callback/hikvision", s.handleHikvisionCallback)
 	})
 
 	// Protected API routes (auth required)
@@ -105,6 +109,7 @@ func (s *Server) routes() {
 			r.Get("/users/{id}", s.handleGetUser)
 			r.Put("/users/{id}", s.handleUpdateUser)
 			r.Delete("/users/{id}", s.handleDeleteUser)
+			r.Get("/audit-logs", s.handleListAuditLogs)
 		})
 
 		// Discovery (admin only)
@@ -116,9 +121,12 @@ func (s *Server) routes() {
 			r.Delete("/devices/configured/{id}", s.handleDeleteManagedDevice)
 			r.Post("/devices/configured/{id}/default", s.handleSetManagedDeviceDefault)
 			r.Post("/devices/configured/{id}/sync", s.handleSyncEmployeesToDevice)
+			r.Post("/devices/import-users", s.handleImportEmployeesFromDevices)
+			r.Post("/devices/import-photos", s.handleImportAllFaces)
 			r.Post("/devices/read-events", s.handleReadRecentEvents)
 			r.Post("/devices/configured/{id}/sync-one/{employeeNo}", s.handleSyncOneEmployeeToDevice)
 			r.Post("/devices/configured/{id}/sync-time", s.handleSyncDeviceTime)
+			r.Post("/devices/configured/{id}/setup-alarm-host", s.handleSetupDeviceAlarmHost)
 			r.Delete("/devices/configured/{id}/sync-one/{employeeNo}", s.handleRevokeEmployeeFromDevice)
 			r.Get("/devices/configured/{id}/logs", s.handleGetDeviceLogs)
 			r.Get("/devices/logs", s.handleGetDeviceLogs)
@@ -135,7 +143,10 @@ func (s *Server) routes() {
 			r.Get("/employees/{id}", s.handleGetEmployee)
 			r.Put("/employees/{id}", s.handleUpdateEmployee)
 			r.Delete("/employees/{id}", s.handleDeleteEmployee)
+			r.Put("/employees/{employeeNo}/photo", s.handleUploadEmployeePhoto)
+			r.Delete("/employees/{employeeNo}/photo", s.handleDeleteEmployeePhoto)
 			r.Post("/employees/{employeeNo}/face", s.handleRegisterFace)
+			r.Post("/employees/{employeeNo}/face/import", s.handleImportFace)
 			r.Delete("/employees/{employeeNo}/face", s.handleDeleteFace)
 			r.Get("/employees/{employeeNo}/face/status", s.handleFaceStatus)
 			r.Get("/employees/faces/list", s.handleListFaces)
@@ -163,9 +174,11 @@ func (s *Server) routes() {
 		})
 		r.Get("/positions", s.handleListPositions)
 
-		// Attendance (all authenticated users)
-		r.Get("/attendance/events", s.handleListEvents)
-		r.Get("/attendance/summary", s.handleGetAttendanceSummary)
+		// Attendance routes
+		r.Get("/attendance/events", s.handleGetEvents)
+		r.Get("/attendance/stats", s.handleGetDashboardStats)
+		r.Get("/attendance/recent", s.handleGetRecentActivity)
+		r.Post("/attendance/process", s.handleProcessAttendance)
 		r.Get("/attendance/daily", s.handleGetDailyAttendance)
 		r.Get("/attendance/stats", s.handleGetStats)
 
@@ -203,6 +216,16 @@ func (s *Server) routes() {
 			r.Post("/ldap/test", s.handleTestLDAP)
 			r.Post("/ldap/sync", s.handleSyncLDAP)
 		})
+
+		// Holidays (admin only)
+		r.Group(func(r chi.Router) {
+			r.Use(auth.RequireRole("admin"))
+			r.Post("/holidays", s.handleCreateHoliday)
+			r.Put("/holidays/{id}", s.handleUpdateHoliday)
+			r.Delete("/holidays/{id}", s.handleDeleteHoliday)
+		})
+		r.Get("/holidays", s.handleListHolidays)
+		r.Get("/holidays/{id}", s.handleGetHoliday)
 
 		// Travel Allowance Rates (admin only)
 		r.Group(func(r chi.Router) {
@@ -245,6 +268,10 @@ func (s *Server) handleListEmployees(w http.ResponseWriter, r *http.Request) {
 	emps, err := s.Store.ListEmployees(r.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err := s.markEmployeesAdminStatus(r.Context(), emps); err != nil {
+		http.Error(w, "failed to resolve employee roles", http.StatusInternalServerError)
 		return
 	}
 	json.NewEncoder(w).Encode(emps)

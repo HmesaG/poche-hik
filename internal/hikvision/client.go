@@ -35,11 +35,12 @@ func (e *ISAPIError) Error() string {
 
 // Client handles communication with a Hikvision device using ISAPI and Digest Auth.
 type Client struct {
-	Host     string
-	Port     int
-	Username string
-	Password string
-	http     *http.Client
+	Host           string
+	Port           int
+	Username       string
+	Password       string
+	TimezoneOffset string // e.g. "+08:00"
+	http           *http.Client
 }
 
 // NewClient creates a new ISAPI client for the given device.
